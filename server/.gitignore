@@ -1,0 +1,9 @@
+# TurfZone Backend - .gitignore
+node_modules/
+.env
+logs/
+uploads/
+*.log
+.DS_Store
+coverage/
+dist/
