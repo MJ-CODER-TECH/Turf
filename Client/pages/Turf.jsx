@@ -23,7 +23,7 @@ const TurfPage = () => {
   useEffect(() => {
     const fetchTurfs = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/v1/turfs");
+const response = await axios.get(`${import.meta.env.VITE_API_URL}/turfs`);
         const turfArray = response.data.data || [];
         setTurfs(turfArray);
       } catch (err) {
