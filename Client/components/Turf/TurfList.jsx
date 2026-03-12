@@ -13,7 +13,7 @@ const TurfList = () => {
   useEffect(() => {
     const fetchTurfs = async () => {
       try {
-        const { data } = await axios.get('http://localhost:5000/api/v1/turfs');
+const { data } = await axios.get(`${import.meta.env.VITE_API_URL}/turfs`);
         setTurfs(data.data); // tumhare response me data field me array hai
       } catch (err) {
         setError('Failed to fetch turfs');
