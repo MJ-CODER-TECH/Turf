@@ -68,7 +68,7 @@ app.use('/api/v1/auth/', authLimiter);
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.FRONTEND_URL_PROD,
-  'http://localhost:3000',
+  'https://turf-zone-lovat.vercel.app',
   'http://localhost:5173',
 ].filter(Boolean);
 
