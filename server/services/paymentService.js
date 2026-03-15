@@ -14,12 +14,12 @@ const getRazorpay = () => {
   return razorpayInstance;
 };
 
-// ── Create Order ───────────────────────────────────────────
+// services/paymentService.js — update createOrder's catch block
 const createOrder = async ({ amount, currency = 'INR', receipt, notes = {} }) => {
   try {
     const razorpay = getRazorpay();
     const order = await razorpay.orders.create({
-      amount:   amount * 100, // Razorpay expects paise
+      amount:   amount * 100,
       currency,
       receipt:  receipt || `TZ_${Date.now()}`,
       notes,
@@ -28,8 +28,10 @@ const createOrder = async ({ amount, currency = 'INR', receipt, notes = {} }) =>
     logger.info(`💳 Razorpay order created: ${order.id}`);
     return { success: true, order };
   } catch (err) {
-    logger.error(`💳 Razorpay order creation failed: ${err.message}`);
-    return { success: false, error: err.message };
+    // Razorpay throws objects, not Errors — handle both
+    const errMsg = err?.error?.description || err?.message || JSON.stringify(err);
+    logger.error(`💳 Razorpay order creation failed: ${errMsg}`);
+    return { success: false, error: errMsg };
   }
 };
 

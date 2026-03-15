@@ -136,7 +136,7 @@ const Navbar = () => {
                   <NavLink to="/profile" className="flex items-center space-x-2 px-4 py-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-green-500/10 hover:text-green-600 dark:hover:text-green-400 transition-colors">
                     <User className="w-4 h-4" /><span>Profile</span>
                   </NavLink>
-                  <NavLink to="/bookings" className="flex items-center space-x-2 px-4 py-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-green-500/10 hover:text-green-600 dark:hover:text-green-400 transition-colors">
+                  <NavLink to="/my-bookings" className="flex items-center space-x-2 px-4 py-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-green-500/10 hover:text-green-600 dark:hover:text-green-400 transition-colors">
                     <CalendarDays className="w-4 h-4" /><span>My Bookings</span>
                   </NavLink>
                   <NavLink to="/wallet" className="flex items-center space-x-2 px-4 py-3 text-sm text-gray-600 dark:text-gray-300 hover:bg-green-500/10 hover:text-green-600 dark:hover:text-green-400 transition-colors">
@@ -235,7 +235,7 @@ const Navbar = () => {
                     <User className="w-4 h-4" /><span>Profile</span>
                   </button>
                 </NavLink>
-                <NavLink to="/bookings">
+                <NavLink to="/my-bookings">
                   <button className="w-full flex items-center space-x-2 px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800/50 rounded-lg hover:text-green-600 dark:hover:text-green-400 transition-colors">
                     <CalendarDays className="w-4 h-4" /><span>My Bookings</span>
                   </button>

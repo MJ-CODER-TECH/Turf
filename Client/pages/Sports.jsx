@@ -1,4 +1,5 @@
 import React from "react";
+import Footer from "../components/Footer/Footer";
 
 const SportPage = () => {
   const sports = [
@@ -65,6 +66,7 @@ const SportPage = () => {
           every sport — every turf
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

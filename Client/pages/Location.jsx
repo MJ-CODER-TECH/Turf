@@ -89,11 +89,12 @@ const LocationsPage = () => {
       </div>
 
       {/* Footer Note */}
-      <div className="dark:border-[#1a3a5c] border-gray-200 border-t dark:bg-[#0d1f3c] bg-white">
+      {/* <div className="dark:border-[#1a3a5c] border-gray-200 border-t dark:bg-[#0d1f3c] bg-white">
         <div className="max-w-7xl mx-auto px-4 py-5 text-center">
           <p className="dark:text-slate-400 text-slate-500 text-sm">🏟️ Premium turfs across Maharashtra • Book your game now</p>
         </div>
-      </div>
+      </div> */}
+      
       <Footer />
     </div>
   );

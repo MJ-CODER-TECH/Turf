@@ -87,9 +87,16 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // ← Preflight fix
 // ── Body Parsing ───────────────────────────────────────────
-app.use(express.json({ limit: '10mb' }));
+// Webhook route ko raw body chahiye — express.json() se pehle handle karo
+app.use((req, res, next) => {
+  const webhookPath = `${'/api/' + (process.env.API_VERSION || 'v1')}/bookings/webhook`;
+  if (req.originalUrl === webhookPath) {
+    express.raw({ type: 'application/json' })(req, res, next);
+  } else {
+    express.json({ limit: '10mb' })(req, res, next);
+  }
+});
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
 // ── Data Sanitization ─────────────────────────────────────
 app.use(mongoSanitize());    // Prevent NoSQL injection
 // app.use(xss());            // Prevent XSS (install xss-clean separately)
