@@ -18,7 +18,7 @@ import VerifyPending from "../pages/Auth/VerifyPending";
 import VerifyEmail from "../pages/Auth/Verifyemail";
 import ScrollToTop from "../components/ScrollToTop/ScrollToTop";
 import BookingPage from "../pages/BookingPage";
-import MyBookingsPage from "../pages/MyBookingsPage";
+import MyBookingsPage from "../pages/Mybookingspage";
 import BookingDetailsPage from "../pages/BookingDetailsPage";
 
 
