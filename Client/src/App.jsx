@@ -25,7 +25,7 @@ import BookingDetailsPage from "../pages/BookingDetailsPage";
 const App = () => {
   return (
     <BrowserRouter>
-      <ScrollToTop />  {/* ← Routes ke bahar, BrowserRouter ke andar */}
+      <ScrollToTop /> 
       <Routes>
 
         <Route element={<Layout />}>
