@@ -92,8 +92,12 @@ UserSchema.index({ role: 1 });
 UserSchema.index({ createdAt: -1 });
 
 // ── Pre-save: Hash password ────────────────────────────────
-UserSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+// User.js - pre-save hook mein ye check add karo
+UserSchema.pre('save', async function (next) {
+  // Agar flag set hai ya password modify nahi hua toh skip karo
+  if (!this.isModified('password') || this.$locals.skipPasswordHash) {
+    return next();
+  }
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
   next();

@@ -138,16 +138,19 @@ exports.verifyEmail = async (req, res) => {
     }
 
     // Create the real user now
-    const userData = {
-      name:            pending.name,
-      email:           pending.email,
-      phone:           pending.phone,
-      password:        pending.password,
-      isEmailVerified: true,
-    };
-    if (pending.favouriteSport) userData.favouriteSport = pending.favouriteSport;
-    const user = await User.create(userData);
-
+// Create the real user now (password already hashed in PendingUser)
+const userData = {
+  name:            pending.name,
+  email:           pending.email,
+  phone:           pending.phone,
+  password:        pending.password, // already hashed!
+  isEmailVerified: true,
+};
+if (pending.favouriteSport) userData.favouriteSport = pending.favouriteSport;
+// ✅ new + save instead of create (to skip password hashing)
+const user = new User(userData);
+user.$locals.skipPasswordHash = true;
+await user.save({ validateBeforeSave: false });
     // Clean up pending record
     await PendingUser.findByIdAndDelete(pending._id);
 
@@ -271,6 +274,7 @@ exports.login = async (req, res) => {
     }
 
     const isMatch = await user.matchPassword(password);
+
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
