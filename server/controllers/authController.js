@@ -18,11 +18,11 @@ const sendTokenResponse = async (user, statusCode, res, message = 'Success') => 
   user.loginCount = (user.loginCount || 0) + 1;
   await user.save({ validateBeforeSave: false });
 
-  const cookieOptions = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
-  };
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict' // ← CHANGE THIS
+};
 
   res
     .status(statusCode)
