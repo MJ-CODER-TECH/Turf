@@ -10,6 +10,7 @@ const Home = () => {
       <Banner/>
       <TurfList/>
       <FeatureSection/>
+     
                   <Footer/>
 
 

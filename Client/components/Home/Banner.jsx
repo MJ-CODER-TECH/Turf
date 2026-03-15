@@ -94,68 +94,80 @@ const Banner = () => {
 
         </div>
 
-        {/* ── DESKTOP BOOKING CARD ── */}
-        <div className="hidden sm:block bg-white/10 backdrop-blur-md p-3 sm:p-4 mt-16 sm:mt-20 rounded-2xl w-[280px] sm:w-[320px] border border-white/20">
+{/* ── DESKTOP BOOKING CARD ── */}
+<div className="hidden sm:block dark:bg-[#0d1f3c]/80 bg-white/90 backdrop-blur-md p-4 mt-16 sm:mt-20 rounded-2xl w-[280px] sm:w-[320px] dark:border-[#1a3a5c] border-gray-200 border shadow-lg dark:shadow-none">
 
-          <p className="text-white text-xs mb-2 sm:mb-3">
-            Discover and book top quality courts effortlessly with
-            <span className="text-green-400 font-semibold"> Turfhub.</span>
-          </p>
+  <span className="dark:text-green-400 text-green-600 text-[10px] font-bold tracking-[2px] uppercase">⚽ Quick Book</span>
+  <p className="dark:text-slate-300 text-slate-600 text-xs mt-1 mb-3 leading-relaxed">
+    Discover and book top quality courts effortlessly with
+    <span className="dark:text-green-400 text-green-600 font-semibold"> Turfhub.</span>
+  </p>
 
-          <div className="bg-white rounded-xl p-3 sm:p-4 shadow-lg">
-            <div className="space-y-2.5 sm:space-y-3">
+  <div className="dark:bg-[#0a1628] bg-gray-50 dark:border-[#1a3a5c] border-gray-200 border rounded-xl p-4 space-y-3">
 
-              <div>
-                <label className="text-xs font-medium text-gray-600 block">Location</label>
-                <select className="w-full mt-1 border rounded-lg p-2 text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-gray-400">
-                  <option>Select your perfect location</option>
-                  <option>Pune</option>
-                  <option>Mumbai</option>
-                  <option>Delhi</option>
-                  <option>Bangalore</option>
-                </select>
-              </div>
+    {/* Location */}
+    <div>
+      <label className="text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wider block mb-1">Location</label>
+      <select className="w-full dark:border-[#1a3a5c] border-gray-200 border rounded-lg p-2 text-xs dark:bg-[#0d1f3c] bg-white dark:text-white text-gray-800 focus:outline-none focus:border-green-500 transition-colors duration-200">
+        <option>Select your perfect location</option>
+        <option>Pune</option>
+        <option>Mumbai</option>
+        <option>Delhi</option>
+        <option>Bangalore</option>
+      </select>
+    </div>
 
-              <div>
-                <label className="text-xs font-medium text-gray-600 block">Court Type</label>
-                <select className="w-full mt-1 border rounded-lg p-2 text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-gray-400">
-                  <option>Court type (e.g clay, grass)</option>
-                  <option>Football</option>
-                  <option>Cricket</option>
-                  <option>Hockey</option>
-                  <option>Tennis</option>
-                </select>
-              </div>
+    {/* Court Type */}
+    <div>
+      <label className="text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wider block mb-1">Court Type</label>
+      <select className="w-full dark:border-[#1a3a5c] border-gray-200 border rounded-lg p-2 text-xs dark:bg-[#0d1f3c] bg-white dark:text-white text-gray-800 focus:outline-none focus:border-green-500 transition-colors duration-200">
+        <option>Court type (e.g clay, grass)</option>
+        <option>Football</option>
+        <option>Cricket</option>
+        <option>Hockey</option>
+        <option>Tennis</option>
+      </select>
+    </div>
 
-              <div>
-                <label className="text-xs font-medium text-gray-600 block">Duration</label>
-                <select className="w-full mt-1 border rounded-lg p-2 text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-gray-400">
-                  <option>Select Duration</option>
-                  <option>1 Hour</option>
-                  <option>2 Hours</option>
-                  <option>3 Hours</option>
-                </select>
-              </div>
+    {/* Duration */}
+    <div>
+      <label className="text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wider block mb-1">Duration</label>
+      <select className="w-full dark:border-[#1a3a5c] border-gray-200 border rounded-lg p-2 text-xs dark:bg-[#0d1f3c] bg-white dark:text-white text-gray-800 focus:outline-none focus:border-green-500 transition-colors duration-200">
+        <option>Select Duration</option>
+        <option>1 Hour</option>
+        <option>2 Hours</option>
+        <option>3 Hours</option>
+      </select>
+    </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block">Date</label>
-                  <input type="date" className="w-full mt-1 border rounded-lg p-2 text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-gray-400" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block">Time</label>
-                  <input type="time" className="w-full mt-1 border rounded-lg p-2 text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-gray-400" />
-                </div>
-              </div>
+    {/* Date & Time */}
+    <div className="grid grid-cols-2 gap-2">
+      <div>
+        <label className="text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wider block mb-1">Date</label>
+        <input
+          type="date"
+          className="w-full dark:border-[#1a3a5c] border-gray-200 border rounded-lg p-2 text-xs dark:bg-[#0d1f3c] bg-white dark:text-white text-gray-800 focus:outline-none focus:border-green-500 transition-colors duration-200 dark:[color-scheme:dark] [color-scheme:light]"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wider block mb-1">Time</label>
+        <input
+          type="time"
+          className="w-full dark:border-[#1a3a5c] border-gray-200 border rounded-lg p-2 text-xs dark:bg-[#0d1f3c] bg-white dark:text-white text-gray-800 focus:outline-none focus:border-green-500 transition-colors duration-200 dark:[color-scheme:dark] [color-scheme:light]"
+        />
+      </div>
+    </div>
 
-              <button className="w-full mt-1 sm:mt-2 bg-gray-200 text-gray-800 py-2 rounded-xl text-sm font-medium hover:bg-gray-300 transition-colors">
-                Book Court Now
-              </button>
+    {/* Divider */}
+    <div className="w-full h-px dark:bg-[#1a3a5c] bg-gray-200" />
 
-            </div>
-          </div>
+    {/* Button */}
+    <button className="w-full bg-green-500 dark:text-[#0a1628] text-white py-2.5 rounded-xl text-xs font-extrabold tracking-wide hover:bg-green-400 transition-colors duration-200">
+      Book Court Now →
+    </button>
 
-        </div>
+  </div>
+</div>
 
       </div>
     </section>

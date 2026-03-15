@@ -8,13 +8,12 @@ const { protect, authorize } = require('../middleware/auth');
 router.post('/webhook', express.raw({ type: 'application/json' }), bookingController.handleWebhook);
 
 // Protected routes
-router.use(protect);
+router.use(protect);  // ← availability is now ABOVE this line
 
-router.get('/availability',    bookingController.checkAvailability);
-router.get('/my',              bookingController.getMyBookings);
-router.post('/initiate',       bookingController.initiateBooking);
-router.post('/confirm',        bookingController.confirmBooking);
-router.get('/:id',             bookingController.getBooking);
-router.post('/:id/cancel',     bookingController.cancelBooking);
-
+router.get('/availability', bookingController.checkAvailability);
+router.get('/my',           bookingController.getMyBookings);
+router.post('/initiate',    bookingController.initiateBooking);
+router.post('/confirm',     bookingController.confirmBooking);
+router.get('/:id',          bookingController.getBooking);
+router.post('/:id/cancel',  bookingController.cancelBooking);
 module.exports = router;

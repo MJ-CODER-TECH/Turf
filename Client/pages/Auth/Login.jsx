@@ -1,69 +1,64 @@
+// Login.jsx
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const Login = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="relative w-full h-screen">
-
-      {/* Background Image */}
       <img
         src="https://images.unsplash.com/photo-1695438383563-4f83ad855bbd?q=80&w=871&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
         alt="turf"
         className="absolute w-full h-full object-cover"
       />
+      <button
+        onClick={() => navigate(-1)}
+        className="sm:hidden fixed top-4 left-4 z-50 w-10 h-10 flex items-center justify-center dark:bg-[#0d1f3c]/80 bg-white/80 backdrop-blur-md dark:border-[#1a3a5c] border-gray-200 border rounded-full dark:text-white text-gray-800 hover:border-green-500 hover:text-green-500 dark:hover:text-green-400 transition-all duration-200"
+      >←</button>
 
-      {/* Dark Overlay */}
-      <div className="absolute inset-0 bg-black/20"></div>
+      <div className="absolute inset-0 dark:bg-[#0a1628]/70 bg-black/30" />
 
-      {/* Center Login Form */}
       <div className="relative z-10 flex items-center justify-center h-full">
+        <div className="w-[380px] p-8 rounded-2xl dark:bg-[#0d1f3c]/80 bg-white/90 backdrop-blur-md dark:border-[#1a3a5c] border-white/30 border shadow-[0_0_40px_rgba(0,0,0,0.2)]">
 
-        <div className="w-[380px] p-8 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-xl">
+          <div className="text-center mb-7">
+            <span className="dark:text-green-400 text-green-600 text-[10px] font-bold tracking-[3px] uppercase">⚽ Welcome Back</span>
+            <h2 className="dark:text-white text-gray-900 text-3xl font-extrabold mt-1">Login</h2>
+            <div className="w-10 h-1 rounded-full bg-gradient-to-r from-green-400 to-green-600 mx-auto mt-2" />
+          </div>
 
-          {/* Title */}
-          <h2 className="text-3xl font-semibold text-white text-center mb-6">
-            Login
-          </h2>
+          <div className="mb-3">
+            <label className="text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wider block mb-1">Email</label>
+            <input type="email" placeholder="Enter your email"
+              className="w-full p-3 rounded-lg dark:bg-[#0a1628] bg-gray-50 dark:border-[#1a3a5c] border-gray-200 border dark:text-white text-gray-800 placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-green-500 transition-colors duration-200"
+            />
+          </div>
 
-          {/* Email */}
-          <input
-            type="email"
-            placeholder="Email address"
-            className="w-full mb-4 p-3 rounded-lg bg-white/20 text-white placeholder-gray-300 outline-none border border-white/20"
-          />
+          <div className="mb-2">
+            <label className="text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wider block mb-1">Password</label>
+            <input type="password" placeholder="Enter your password"
+              className="w-full p-3 rounded-lg dark:bg-[#0a1628] bg-gray-50 dark:border-[#1a3a5c] border-gray-200 border dark:text-white text-gray-800 placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-green-500 transition-colors duration-200"
+            />
+          </div>
 
-          {/* Password */}
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full mb-3 p-3 rounded-lg bg-white/20 text-white placeholder-gray-300 outline-none border border-white/20"
-          />
-
-          {/* Forgot */}
-          <div className="text-right mb-4">
-            <Link
-              to="/forgot"
-              className="text-sm text-gray-300 hover:text-white"
-            >
+          <div className="text-right mb-5">
+            <Link to="/forgot" className="text-xs dark:text-slate-400 text-slate-500 hover:text-green-500 dark:hover:text-green-400 transition-colors duration-200">
               Forgot Password?
             </Link>
           </div>
 
-          {/* Login Button */}
-          <button className="w-full bg-white text-black py-3 rounded-lg font-semibold hover:bg-gray-200 transition">
-            Login
+          <div className="w-full h-px dark:bg-[#1a3a5c] bg-gray-200 mb-5" />
+
+          <button className="w-full bg-green-500 dark:text-[#0a1628] text-white py-3 rounded-xl font-extrabold text-sm tracking-wide hover:bg-green-400 transition-colors duration-200">
+            Login →
           </button>
 
-          {/* Register */}
-          <p className="text-center text-gray-300 text-sm mt-6">
+          <p className="text-center dark:text-slate-400 text-slate-500 text-xs mt-5">
             Don't have an account?{" "}
-            <Link to="/register" className="text-white font-semibold">
-              Sign Up
-            </Link>
+            <Link to="/register" className="dark:text-green-400 text-green-600 font-bold hover:text-green-500 transition-colors">Sign Up</Link>
           </p>
-
         </div>
-
       </div>
     </div>
   );
