@@ -15,6 +15,8 @@ import Otp from "../pages/Auth/OtpVerification";
 import Reset from "../pages/Auth/ResetPassword";
 import TurfDetailsPage from "../pages/TurfDetailsPage";
 import Footer from "../components/Footer/Footer";
+import VerifyPending from "../pages/Auth/VerifyPending";
+import VerifyEmail from "../pages/Auth/Verifyemail";
 const App = () => {
   return (
     <BrowserRouter>
@@ -39,7 +41,9 @@ const App = () => {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot" element={<Forgot />} />
         <Route path="/otp" element={<Otp />} />
-        <Route path="/reset" element={<Reset />} />
+<Route path="/reset-password/:token" element={<Reset />} />
+        <Route path="/verify-pending" element={<VerifyPending />} />
+        <Route path="/verify-email/:token" element={<VerifyEmail />} />
 
       </Routes>
 

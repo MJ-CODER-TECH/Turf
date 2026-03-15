@@ -464,6 +464,7 @@ const TurfDetailsPage = () => {
               <div className="w-8 h-0.5 bg-green-500 rounded-full mb-4" />
               <p className="dark:text-slate-400 text-slate-500 leading-relaxed">{turf.description}</p>
             </section>
+
             {/* Stats */}
             <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
@@ -472,21 +473,21 @@ const TurfDetailsPage = () => {
                 { label: 'Capacity',   value: `${turf.capacity} players` },
                 { label: 'Base Price', value: `₹${turf.price}/hr`, green: true },
               ].map((item) => (
-                <div key={item.label} className="bg-[#0d1f3c] border border-[#1a3a5c] rounded-xl p-4 text-center hover:border-green-500/50 transition-colors duration-200">
-                  <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">{item.label}</p>
-                  <p className={`font-bold capitalize ${item.green ? 'text-green-400' : 'text-white'}`}>{item.value}</p>
+                <div key={item.label} className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl p-4 text-center hover:border-green-500/50 transition-colors duration-200 shadow-sm">
+                  <p className="dark:text-slate-500 text-slate-400 text-xs uppercase tracking-wider mb-1">{item.label}</p>
+                  <p className={`font-bold capitalize ${item.green ? 'dark:text-green-400 text-green-600' : 'dark:text-white text-gray-900'}`}>{item.value}</p>
                 </div>
               ))}
             </section>
 
-            {/* ── TIME SLOT BOOKING SECTION ── */}
-            <section className="bg-[#0d1f3c] border border-[#1a3a5c] rounded-xl p-6">
-              <h2 className="text-white font-extrabold text-lg mb-1">Book a Slot</h2>
+            {/* Book a Slot */}
+            <section className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl p-6 shadow-sm">
+              <h2 className="dark:text-white text-gray-900 font-extrabold text-lg mb-1">Book a Slot</h2>
               <div className="w-8 h-0.5 bg-green-500 rounded-full mb-5" />
 
               {/* Date Picker */}
               <div className="mb-5">
-                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+                <label className="block dark:text-slate-400 text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">
                   📅 Select Date
                 </label>
                 <input
@@ -494,19 +495,19 @@ const TurfDetailsPage = () => {
                   value={selectedDate}
                   min={getTodayStr()}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full sm:w-56 bg-[#0a1628] border border-[#1a3a5c] text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 transition-colors cursor-pointer"
+                  className="w-full sm:w-56 dark:bg-[#0a1628] bg-gray-50 dark:border-[#1a3a5c] border-gray-200 border dark:text-white text-gray-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-green-500 transition-colors cursor-pointer dark:[color-scheme:dark] [color-scheme:light]"
                 />
                 {selectedDate && (
-                  <p className="text-slate-500 text-xs mt-1.5">
+                  <p className="dark:text-slate-500 text-slate-400 text-xs mt-1.5">
                     {isWeekend(selectedDate) ? '🏖️ Weekend rate applies' : '📅 Weekday rate applies'}
                   </p>
                 )}
               </div>
 
               {/* Legend */}
-              <div className="flex items-center gap-4 mb-4 text-xs text-slate-500">
+              <div className="flex items-center gap-4 mb-4 text-xs dark:text-slate-500 text-slate-400">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded bg-[#0a1628] border border-[#1a3a5c] inline-block" />
+                  <span className="w-3 h-3 rounded dark:bg-[#0a1628] bg-gray-100 dark:border-[#1a3a5c] border-gray-300 border inline-block" />
                   Available
                 </span>
                 <span className="flex items-center gap-1.5">
@@ -519,7 +520,6 @@ const TurfDetailsPage = () => {
                 </span>
               </div>
 
-              {/* Slot Grid */}
               <SlotGrid
                 slots={ALL_SLOTS}
                 bookedSlots={bookedSlots}
@@ -528,54 +528,41 @@ const TurfDetailsPage = () => {
                 loadingAvailability={loadingAvail}
               />
 
-              {/* Selected count */}
               {selectedSlots.length > 0 && (
                 <div className="mt-4 flex items-center justify-between">
-                  <p className="text-green-400 text-sm font-bold">
+                  <p className="dark:text-green-400 text-green-600 text-sm font-bold">
                     {selectedSlots.length} slot{selectedSlots.length > 1 ? 's' : ''} selected
-                    <span className="text-slate-500 font-normal ml-2">
+                    <span className="dark:text-slate-500 text-slate-400 font-normal ml-2">
                       ({selectedSlots.map(s => s.label).join(', ')})
                     </span>
                   </p>
-                  <button
-                    onClick={() => setSelectedSlots([])}
-                    className="text-slate-500 text-xs hover:text-red-400 transition-colors"
-                  >
+                  <button onClick={() => setSelectedSlots([])} className="dark:text-slate-500 text-slate-400 text-xs hover:text-red-400 transition-colors">
                     Clear all
                   </button>
                 </div>
               )}
 
-              {/* Booking Error */}
               {bookingError && (
-                <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 dark:text-red-400 text-sm">
                   ⚠️ {bookingError}
                 </div>
               )}
 
-              {/* Booking Summary inline (mobile — shows below slot grid) */}
               <div className="lg:hidden">
-                <BookingSummary
-                  selectedDate={selectedDate}
-                  selectedSlots={selectedSlots}
-                  pricing={pricing}
-                  turf={turf}
-                  onBook={handleBook}
-                  booking={booking}
-                />
+                <BookingSummary selectedDate={selectedDate} selectedSlots={selectedSlots} pricing={pricing} turf={turf} onBook={handleBook} booking={booking} />
               </div>
             </section>
 
             {/* Amenities */}
             {amenities?.length > 0 && (
-              <section className="bg-[#0d1f3c] border border-[#1a3a5c] rounded-xl p-6">
-                <h2 className="text-white font-extrabold text-lg mb-1">Amenities</h2>
+              <section className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl p-6 shadow-sm">
+                <h2 className="dark:text-white text-gray-900 font-extrabold text-lg mb-1">Amenities</h2>
                 <div className="w-8 h-0.5 bg-green-500 rounded-full mb-4" />
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {amenities.map((amenity, index) => (
                     <div key={index} className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block flex-shrink-0" />
-                      <span className="text-slate-300 text-sm">{amenity}</span>
+                      <span className="dark:text-slate-300 text-slate-600 text-sm">{amenity}</span>
                     </div>
                   ))}
                 </div>
@@ -584,12 +571,12 @@ const TurfDetailsPage = () => {
 
             {/* Rules */}
             {rules?.length > 0 && (
-              <section className="bg-[#0d1f3c] border border-[#1a3a5c] rounded-xl p-6">
-                <h2 className="text-white font-extrabold text-lg mb-1">House Rules</h2>
+              <section className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl p-6 shadow-sm">
+                <h2 className="dark:text-white text-gray-900 font-extrabold text-lg mb-1">House Rules</h2>
                 <div className="w-8 h-0.5 bg-green-500 rounded-full mb-4" />
                 <ul className="space-y-2">
                   {rules.map((rule, index) => (
-                    <li key={index} className="flex items-start gap-2 text-slate-400 text-sm">
+                    <li key={index} className="flex items-start gap-2 dark:text-slate-400 text-slate-500 text-sm">
                       <span className="text-red-400 mt-0.5 flex-shrink-0">•</span>
                       {rule}
                     </li>
@@ -599,28 +586,28 @@ const TurfDetailsPage = () => {
             )}
 
             {/* Map Placeholder */}
-            <section className="bg-[#0d1f3c] border border-[#1a3a5c] rounded-xl overflow-hidden">
+            <section className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl overflow-hidden shadow-sm">
               <div className="px-6 pt-6 pb-3">
-                <h2 className="text-white font-extrabold text-lg mb-1">Location</h2>
+                <h2 className="dark:text-white text-gray-900 font-extrabold text-lg mb-1">Location</h2>
                 <div className="w-8 h-0.5 bg-green-500 rounded-full" />
               </div>
-              <div className="relative h-56 bg-[#0a1628] flex items-center justify-center mx-4 mb-4 rounded-xl border border-[#1a3a5c]">
+              <div className="relative h-56 dark:bg-[#0a1628] bg-gray-50 flex items-center justify-center mx-4 mb-4 rounded-xl dark:border-[#1a3a5c] border-gray-200 border">
                 <div className="text-center">
                   <svg className="w-8 h-8 text-red-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5 14.5 7.62 14.5 9 13.38 11.5 12 11.5z" />
                   </svg>
-                  <p className="text-slate-400 text-sm">Google Maps Placeholder</p>
-                  <p className="text-slate-600 text-xs mt-1">API integration ready</p>
+                  <p className="dark:text-slate-400 text-slate-500 text-sm">Google Maps Placeholder</p>
+                  <p className="dark:text-slate-600 text-slate-400 text-xs mt-1">API integration ready</p>
                 </div>
               </div>
             </section>
           </div>
 
-          {/* Right — Sticky Booking Card (desktop) */}
+          {/* Right — Sticky Booking Card */}
           <div className="lg:col-span-1 hidden lg:block">
-            <div className="bg-[#0d1f3c] border border-[#1a3a5c] rounded-xl p-6 sticky top-24">
-              <span className="text-green-400 text-xs font-bold tracking-[3px] uppercase">💰 Pricing</span>
-              <h2 className="text-white text-2xl font-extrabold mt-1 mb-1">Pricing Details</h2>
+            <div className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl p-6 sticky top-24 shadow-sm">
+              <span className="dark:text-green-400 text-green-600 text-xs font-bold tracking-[3px] uppercase">💰 Pricing</span>
+              <h2 className="dark:text-white text-gray-900 text-2xl font-extrabold mt-1 mb-1">Pricing Details</h2>
               <div className="w-8 h-0.5 bg-green-500 rounded-full mb-5" />
 
               <div className="space-y-3 mb-6">
@@ -630,44 +617,31 @@ const TurfDetailsPage = () => {
                   ...(pricing?.holiday ? [{ label: 'Holiday', value: `₹${pricing.holiday}/hr` }] : []),
                   ...(pricing?.peak?.enabled ? [{ label: 'Peak Hours', value: `₹${pricing.peak.price}/hr`, green: true }] : []),
                 ].map((item) => (
-                  <div key={item.label} className="flex justify-between items-center py-2 border-b border-[#1a3a5c]">
-                    <span className="text-slate-400 text-sm">{item.label}</span>
-                    <span className={`font-bold text-sm ${item.green ? 'text-green-400' : 'text-white'}`}>{item.value}</span>
+                  <div key={item.label} className="flex justify-between items-center py-2 dark:border-[#1a3a5c] border-gray-200 border-b">
+                    <span className="dark:text-slate-400 text-slate-500 text-sm">{item.label}</span>
+                    <span className={`font-bold text-sm ${item.green ? 'dark:text-green-400 text-green-600' : 'dark:text-white text-gray-900'}`}>{item.value}</span>
                   </div>
                 ))}
               </div>
 
               {cancellationPolicy && (
-                <div className="mb-5 p-4 bg-[#0a1628] border border-[#1a3a5c] rounded-xl">
-                  <h3 className="text-white font-bold text-sm mb-2">Cancellation Policy</h3>
-                  <p className="text-slate-400 text-xs mb-1">Free cancellation up to {cancellationPolicy.freeUntilHours} hours before booking</p>
-                  <p className="text-slate-400 text-xs">Refund: <span className="text-green-400 font-semibold">{cancellationPolicy.refundPercent}%</span></p>
+                <div className="mb-5 p-4 dark:bg-[#0a1628] bg-gray-50 dark:border-[#1a3a5c] border-gray-200 border rounded-xl">
+                  <h3 className="dark:text-white text-gray-900 font-bold text-sm mb-2">Cancellation Policy</h3>
+                  <p className="dark:text-slate-400 text-slate-500 text-xs mb-1">Free cancellation up to {cancellationPolicy.freeUntilHours} hours before booking</p>
+                  <p className="dark:text-slate-400 text-slate-500 text-xs">Refund: <span className="dark:text-green-400 text-green-600 font-semibold">{cancellationPolicy.refundPercent}%</span></p>
                 </div>
               )}
 
-              {/* Booking summary + pay button (desktop) */}
-              <BookingSummary
-                selectedDate={selectedDate}
-                selectedSlots={selectedSlots}
-                pricing={pricing}
-                turf={turf}
-                onBook={handleBook}
-                booking={booking}
-              />
+              <BookingSummary selectedDate={selectedDate} selectedSlots={selectedSlots} pricing={pricing} turf={turf} onBook={handleBook} booking={booking} />
 
-              {/* When no slots selected show hint */}
               {selectedSlots.length === 0 && (
-                <button
-                  disabled
-                  className="w-full py-3 bg-[#0a1628] border border-[#1a3a5c] text-slate-500 font-extrabold rounded-xl text-sm tracking-wide cursor-not-allowed"
-                >
+                <button disabled className="w-full py-3 dark:bg-[#0a1628] bg-gray-50 dark:border-[#1a3a5c] border-gray-200 border dark:text-slate-500 text-slate-400 font-extrabold rounded-xl text-sm tracking-wide cursor-not-allowed">
                   ← Select slots to book
                 </button>
               )}
 
-              {/* Booking Error (desktop) */}
               {bookingError && (
-                <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs">
+                <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 dark:text-red-400 text-xs">
                   ⚠️ {bookingError}
                 </div>
               )}
