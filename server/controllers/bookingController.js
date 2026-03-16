@@ -36,6 +36,23 @@ exports.initiateBooking = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Cannot book more than 30 days in advance.' });
     }
 
+    // ✅ FIX 1: Past slots block karo
+    const nowIST  = moment.tz(IST);
+    const isToday = moment.tz(bookingDate, IST).isSame(nowIST, 'day');
+
+    for (const slot of timeSlots) {
+      if (isToday) {
+        const [slotHour] = slot.start.split(':').map(Number);
+        const slotDateTime = moment.tz(bookingDate, IST).hour(slotHour).minute(0).second(0);
+        if (slotDateTime.isBefore(nowIST)) {
+          return res.status(400).json({
+            success: false,
+            message: `Slot ${slot.start} has already passed. Please select a future slot.`
+          });
+        }
+      }
+    }
+
     // Check availability for ALL requested slots
     for (const slot of timeSlots) {
       const isAvailable = await Booking.isSlotAvailable(turfId, bookingDate, slot.start);
@@ -47,7 +64,7 @@ exports.initiateBooking = async (req, res) => {
       }
     }
 
-    // Calculate amount for all slots
+    // Calculate amount for ALL slots combined
     const singleSlot = paymentService.calculateAmount(turf, bookingDate);
     const slotCount  = timeSlots.length;
     const amount = {
@@ -60,7 +77,7 @@ exports.initiateBooking = async (req, res) => {
     // Create Razorpay order
     const orderResult = await paymentService.createOrder({
       amount:  amount.total,
-receipt: `TZ_${Date.now()}`,
+      receipt: `TZ_${Date.now()}`,
       notes: {
         turfId,
         userId:    req.user.id,
@@ -77,44 +94,25 @@ receipt: `TZ_${Date.now()}`,
       });
     }
 
-    // Create one pending booking per slot
-    const bookings = await Promise.all(
-      timeSlots.map(slot =>
-        Booking.create({
-          user:     req.user.id,
-          turf:     turfId,
-          date:     bookingDate,
-          timeSlot: { start: slot.start, end: slot.end },
-          players:  players || turf.capacity || 10,
-          amount,
-          status:        'pending',
-          paymentStatus: 'pending',
-          razorpayOrderId: orderResult.order.id,
-          turfSnapshot: {
-            name:       turf.name,
-            location:   turf.location.area,
-            city:       turf.location.city,
-            sport:      turf.sport,
-            ownerPhone: ''
-          }
-        })
-      )
-    );
-
-    // Return primary booking id (first slot); confirm will handle all via orderId
-    const primaryBooking = bookings[0];
-
+    // ✅ FIX 2: Database mein KUCH SAVE NAHI — sirf Razorpay order return karo
+    // Booking tabhi create hogi jab payment confirm ho (/confirm endpoint pe)
     res.status(200).json({
       success: true,
-      message: 'Booking initiated. Complete payment to confirm.',
+      message: 'Order created. Complete payment to confirm your booking.',
       data: {
-        bookingId:       primaryBooking._id,
-        bookingRef:      primaryBooking.bookingId,
-        allBookingIds:   bookings.map(b => b._id),
         razorpayOrderId: orderResult.order.id,
         keyId:           process.env.RAZORPAY_KEY_ID,
         amount:          amount.total,
         amountBreakdown: amount,
+        // ✅ Booking banane ke liye zaroori sab kuch yahan bhej do
+        // Frontend Razorpay success handler mein inhe /confirm ko dega
+        bookingMeta: {
+          turfId,
+          date,
+          timeSlots,
+          players:  players || turf.capacity || 10,
+          slotCount,
+        },
         turf: {
           name:     turf.name,
           sport:    turf.sport,
@@ -135,84 +133,126 @@ receipt: `TZ_${Date.now()}`,
 // ── @POST /bookings/confirm ────────────────────────────────
 exports.confirmBooking = async (req, res) => {
   try {
-    const { bookingId, razorpayOrderId, razorpayPaymentId, razorpaySignature, paymentMethod } = req.body;
+    const {
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+      paymentMethod,
+      bookingMeta,       // ✅ FIX 2: ab yahan aata hai booking ka saara data
+    } = req.body;
 
-    // Find the primary booking
-    const booking = await Booking.findOne({ _id: bookingId, user: req.user.id });
-    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found.' });
-    if (booking.status === 'confirmed') {
-      return res.status(400).json({ success: false, message: 'Booking already confirmed.' });
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      return res.status(400).json({ success: false, message: 'Payment details are required.' });
     }
 
-    // Verify Razorpay signature
+    if (!bookingMeta?.turfId || !bookingMeta?.date || !bookingMeta?.timeSlots) {
+      return res.status(400).json({ success: false, message: 'Booking details are required.' });
+    }
+
+    // Duplicate confirm guard — same orderId pe dobara booking nahi banegi
+    const existingBooking = await Booking.findOne({ razorpayOrderId });
+    if (existingBooking) {
+      return res.status(200).json({
+        success: true,
+        message: 'Booking already confirmed.',
+        data: existingBooking
+      });
+    }
+
+    // ✅ Signature verify karo PEHLE — invalid pe DB touch nahi hoga
     const isValid = paymentService.verifyPayment(razorpayOrderId, razorpayPaymentId, razorpaySignature);
     if (!isValid) {
-      // Mark all bookings under this order as failed
-      await Booking.updateMany(
-        { razorpayOrderId, user: req.user.id },
-        { status: 'pending', paymentStatus: 'failed' }
-      );
-
       const user = await User.findById(req.user.id);
       await Promise.allSettled([
-        emailService.sendPaymentFailed(user, booking),
-        smsService.sendPaymentFailed(user.phone, booking)
+        emailService.sendPaymentFailed(user, { amount: bookingMeta }),
+        smsService.sendPaymentFailed(user.phone, { amount: bookingMeta })
       ]);
-
       return res.status(400).json({
         success: false,
         message: 'Payment verification failed. Contact support if money was deducted.'
       });
     }
 
-    // Confirm ALL bookings under this Razorpay order
-    const allBookings = await Booking.find({ razorpayOrderId, user: req.user.id });
+    // ✅ Signature valid — ab booking create karo
+    const turf = await Turf.findById(bookingMeta.turfId);
+    if (!turf) return res.status(404).json({ success: false, message: 'Turf not found.' });
+
+    const bookingDate = moment.tz(bookingMeta.date, IST).startOf('day').toDate();
+    const slotCount   = bookingMeta.timeSlots.length;
+
+    // Amount server pe recalculate karo (frontend pe trust mat karo)
+    const singleSlot = paymentService.calculateAmount(turf, bookingDate);
+    const amount = {
+      base:     singleSlot.base * slotCount,
+      taxes:    Math.round(singleSlot.base * slotCount * 0.18),
+      discount: 0,
+      total:    singleSlot.base * slotCount + Math.round(singleSlot.base * slotCount * 0.18)
+    };
+
+    // Race condition check — payment ke beech mein kisi ne slot le liya?
+    for (const slot of bookingMeta.timeSlots) {
+      const isAvailable = await Booking.isSlotAvailable(bookingMeta.turfId, bookingDate, slot.start);
+      if (!isAvailable) {
+        logger.error(`Race condition: slot ${slot.start} taken after payment ${razorpayPaymentId}`);
+        return res.status(409).json({
+          success: false,
+          message: `Slot ${slot.start} was just booked by someone else. Please contact support with Payment ID: ${razorpayPaymentId} for a full refund.`
+        });
+      }
+    }
 
     const qrPayload = Buffer.from(JSON.stringify({
       orderId:  razorpayOrderId,
-      turfId:   booking.turf,
-      date:     booking.date,
-      slots:    allBookings.map(b => b.timeSlot)
+      turfId:   bookingMeta.turfId,
+      date:     bookingMeta.date,
+      slots:    bookingMeta.timeSlots
     })).toString('base64');
 
-    await Booking.updateMany(
-      { razorpayOrderId, user: req.user.id },
-      {
-        status:            'confirmed',
-        paymentStatus:     'paid',
-        paymentMethod:     paymentMethod || 'razorpay',
-        razorpayPaymentId,
-        razorpaySignature,
-        confirmationSentAt: new Date(),
-        qrCode:             qrPayload
+    // ✅ Booking seedha confirmed + paid status ke saath create hogi
+    const booking = await Booking.create({
+      user:      req.user.id,
+      turf:      bookingMeta.turfId,
+      date:      bookingDate,
+      timeSlots: bookingMeta.timeSlots,
+      duration:  slotCount * 60,
+      players:   bookingMeta.players || turf.capacity || 10,
+      amount,
+      status:            'confirmed',  // ← pending kabhi nahi hogi
+      paymentStatus:     'paid',       // ← seedha paid
+      paymentMethod:     paymentMethod || 'razorpay',
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+      confirmationSentAt: new Date(),
+      qrCode:             qrPayload,
+      turfSnapshot: {
+        name:       turf.name,
+        location:   turf.location.area,
+        city:       turf.location.city,
+        sport:      turf.sport,
+        ownerPhone: ''
       }
-    );
-
-    // Re-fetch updated primary booking
-    const confirmedBooking = await Booking.findById(bookingId);
-
-    // Update turf & user stats (total across all slots)
-    const totalPaid = confirmedBooking.amount.total; // already includes all slots
-    await Turf.findByIdAndUpdate(booking.turf, {
-      $inc: { totalBookings: allBookings.length, totalRevenue: totalPaid }
     });
 
+    // Stats update
     const user = await User.findByIdAndUpdate(req.user.id, {
-      $inc: { totalBookings: allBookings.length, totalSpent: totalPaid }
+      $inc: { totalBookings: slotCount, totalSpent: amount.total }
     }, { new: true });
 
-    const turf = await Turf.findById(booking.turf);
+    await Turf.findByIdAndUpdate(bookingMeta.turfId, {
+      $inc: { totalBookings: slotCount, totalRevenue: amount.total }
+    });
 
     // Send confirmations
     await Promise.allSettled([
-      emailService.sendBookingConfirmation(confirmedBooking, user, turf),
-      smsService.sendBookingConfirmed(user.phone, confirmedBooking, turf),
+      emailService.sendBookingConfirmation(booking, user, turf),
+      smsService.sendBookingConfirmed(user.phone, booking, turf),
       Notification.create({
         user: user._id,
         type: 'booking_confirmed',
         title: 'Booking Confirmed! 🎉',
-        message: `Your booking at ${turf.name} on ${moment(confirmedBooking.date).format('DD MMM')} is confirmed. ${allBookings.length} slot${allBookings.length > 1 ? 's' : ''} booked.`,
-        data: { bookingId: confirmedBooking._id, bookingRef: confirmedBooking.bookingId },
+        message: `Your booking at ${turf.name} on ${moment(booking.date).format('DD MMM')} is confirmed. ${slotCount} slot${slotCount > 1 ? 's' : ''} booked.`,
+        data: { bookingId: booking._id, bookingRef: booking.bookingId },
         channels: {
           inApp: { sent: true, sentAt: new Date() },
           email: { sent: true, sentAt: new Date() },
@@ -221,14 +261,14 @@ exports.confirmBooking = async (req, res) => {
       })
     ]);
 
-    logger.info(`✅ Booking confirmed: ${confirmedBooking.bookingId} (${allBookings.length} slots) for user ${user.email}`);
+    logger.info(`✅ Booking confirmed: ${booking.bookingId} (${slotCount} slots) for user ${user.email}`);
 
-    await confirmedBooking.populate('turf', 'name sport location amenities');
+    await booking.populate('turf', 'name sport location amenities');
 
     res.status(200).json({
       success: true,
       message: 'Booking confirmed successfully! Check your email and SMS.',
-      data: confirmedBooking
+      data: booking
     });
 
   } catch (err) {
@@ -304,17 +344,16 @@ exports.cancelBooking = async (req, res) => {
       return res.status(400).json({ success: false, message: `Cannot cancel a ${booking.status} booking.` });
     }
 
-    // Check cancellation window
+    const firstSlot = booking.timeSlots?.[0] || booking.timeSlot;
     const bookingDateTime = new Date(booking.date);
-    const [h] = booking.timeSlot.start.split(':');
+    const [h] = (firstSlot?.start || '0:0').split(':');
     bookingDateTime.setHours(parseInt(h), 0, 0, 0);
     const hoursUntil = (bookingDateTime - new Date()) / (1000 * 60 * 60);
 
     const freeCancelHours = parseInt(process.env.BOOKING_CANCELLATION_HOURS) || 4;
-    const canRefund   = hoursUntil >= freeCancelHours;
+    const canRefund    = hoursUntil >= freeCancelHours;
     const refundAmount = canRefund ? booking.amount.total : 0;
 
-    // Process refund if eligible
     let refundId = null;
     if (booking.paymentStatus === 'paid' && refundAmount > 0 && booking.razorpayPaymentId) {
       const refundResult = await paymentService.processRefund(
@@ -387,34 +426,55 @@ exports.checkAvailability = async (req, res) => {
     const bookingDate = moment.tz(date, IST).startOf('day').toDate();
     const endOfDay   = moment.tz(date, IST).endOf('day').toDate();
 
+    // ✅ FIX 2: Ab sirf 'confirmed' bookings check karo — pending exist hi nahi karte
     const booked = await Booking.find({
       turf:   turfId,
       date:   { $gte: bookingDate, $lte: endOfDay },
-      status: { $in: ['pending', 'confirmed'] }
-    }).select('timeSlot');
+      status: { $in: ['confirmed'] }
+    }).select('timeSlots timeSlot');
 
-    const bookedTimes = booked.map(b => b.timeSlot.start);
+    const bookedTimes = booked.flatMap(b => {
+      if (b.timeSlots && b.timeSlots.length > 0) return b.timeSlots.map(s => s.start);
+      if (b.timeSlot?.start) return [b.timeSlot.start];
+      return [];
+    });
 
-    // Return ALL hours (06–23) so the frontend SlotGrid works correctly,
-    // not just turf.defaultSlots (which may be a sparse list)
+    // ✅ FIX 1: Past slots automatically unavailable mark karo
+    const nowIST  = moment.tz(IST);
+    const isToday = moment.tz(bookingDate, IST).isSame(nowIST, 'day');
+
     const allHours = [];
     for (let h = 6; h < 23; h++) {
-      const start = `${String(h).padStart(2, '0')}:00`;
-      allHours.push(start);
+      allHours.push(`${String(h).padStart(2, '0')}:00`);
     }
 
-    const slots = allHours.map(start => ({
-      start,
-      available: !bookedTimes.includes(start),
-      price: paymentService.calculateAmount(turf, bookingDate).base
-    }));
+    const slots = allHours.map(start => {
+      const isBooked = bookedTimes.includes(start);
+      let isPast = false;
+
+      if (isToday) {
+        const [slotHour] = start.split(':').map(Number);
+        const slotTime = moment.tz(bookingDate, IST).hour(slotHour).minute(0).second(0);
+        isPast = slotTime.isBefore(nowIST);
+      }
+
+      return {
+        start,
+        available: !isBooked && !isPast,
+        isPast,
+        price: paymentService.calculateAmount(turf, bookingDate).base
+      };
+    });
+
+    // Frontend ko unavailable slots bhejo (booked + past dono)
+    const unavailableSlots = slots.filter(s => !s.available).map(s => s.start);
 
     res.status(200).json({
       success: true,
       data: {
         date,
         turf: { id: turf._id, name: turf.name, sport: turf.sport },
-        bookedSlots:    bookedTimes,          // ← frontend uses this directly
+        bookedSlots:    unavailableSlots,
         slots,
         totalAvailable: slots.filter(s => s.available).length
       }
@@ -430,13 +490,8 @@ exports.checkAvailability = async (req, res) => {
 exports.handleWebhook = async (req, res) => {
   try {
     const signature = req.headers['x-razorpay-signature'];
+    const rawBody = req.body instanceof Buffer ? req.body.toString('utf8') : JSON.stringify(req.body);
 
-    // Raw Buffer se string banao
-    const rawBody = req.body instanceof Buffer
-      ? req.body.toString('utf8')
-      : JSON.stringify(req.body);
-
-    // Signature verify
     const crypto = require('crypto');
     const expectedSig = crypto
       .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)

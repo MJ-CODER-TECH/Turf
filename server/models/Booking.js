@@ -1,6 +1,5 @@
 // models/Booking.js
 const mongoose = require('mongoose');
-const { v4: uuidv4 } = require('uuid');
 
 const BookingSchema = new mongoose.Schema({
   bookingId: {
@@ -23,12 +22,12 @@ const BookingSchema = new mongoose.Schema({
     index: true
   },
 
-  // Snapshot of turf details at booking time (in case turf info changes)
+  // Snapshot of turf details at booking time (in case turf info changes later)
   turfSnapshot: {
-    name:     String,
-    location: String,
-    city:     String,
-    sport:    String,
+    name:       String,
+    location:   String,
+    city:       String,
+    sport:      String,
     ownerPhone: String
   },
 
@@ -38,12 +37,19 @@ const BookingSchema = new mongoose.Schema({
     index: true
   },
 
-  timeSlot: {
-    start: { type: String, required: true },   // "18:00"
-    end:   { type: String, required: true },   // "19:00"
-  },
+  // ✅ FIX: timeSlot (single) → timeSlots (array)
+  // Ab ek booking mein multiple slots store ho sakti hain
+  timeSlots: [
+    {
+      start: { type: String, required: true },  // "06:00"
+      end:   { type: String, required: true },  // "07:00"
+    }
+  ],
 
-  duration: { type: Number, default: 60 },   // in minutes
+  // ✅ Backward compatibility virtual: purana code jo timeSlot.start use karta hai
+  // wo bhi kaam karta rahega (e.g. email templates, admin panel)
+
+  duration: { type: Number, default: 60 },   // total minutes (slotCount * 60)
 
   players: { type: Number, default: 10 },
 
@@ -77,19 +83,19 @@ const BookingSchema = new mongoose.Schema({
   razorpaySignature: String,
 
   // Cancellation
-  cancelledBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  cancelledAt:    Date,
+  cancelledBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  cancelledAt:        Date,
   cancellationReason: String,
-  refundAmount:   { type: Number, default: 0 },
-  refundStatus:   { type: String, enum: ['pending', 'processed', 'failed', ''], default: '' },
-  refundId:       String,
+  refundAmount:       { type: Number, default: 0 },
+  refundStatus:       { type: String, enum: ['pending', 'processed', 'failed', ''], default: '' },
+  refundId:           String,
 
   // QR Code for entry
   qrCode: String,
 
   // Notes
-  userNote:   String,
-  adminNote:  String,
+  userNote:  String,
+  adminNote: String,
 
   // Reminders sent
   reminder24hSent: { type: Boolean, default: false },
@@ -97,7 +103,7 @@ const BookingSchema = new mongoose.Schema({
 
   // Confirmation
   confirmationSentAt: Date,
-  smsSentAt:         Date,
+  smsSentAt:          Date,
 
   // Rating
   hasReviewed: { type: Boolean, default: false },
@@ -105,10 +111,21 @@ const BookingSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // ── Indexes ────────────────────────────────────────────────
-BookingSchema.index({ date: 1, turf: 1, 'timeSlot.start': 1 });
+// ✅ FIX: index bhi timeSlots.start pe update kiya
+BookingSchema.index({ date: 1, turf: 1, 'timeSlots.start': 1 });
 BookingSchema.index({ user: 1, status: 1 });
 BookingSchema.index({ bookingId: 1 });
 BookingSchema.index({ createdAt: -1 });
+
+// ── Virtual: timeSlot (backward compatibility) ─────────────
+// Purana code jo booking.timeSlot.start use karta hai wo bhi kaam karega
+// e.g. email templates, admin panel, old API consumers
+BookingSchema.virtual('timeSlot').get(function() {
+  if (this.timeSlots && this.timeSlots.length > 0) {
+    return this.timeSlots[0];
+  }
+  return null;
+});
 
 // ── Virtual: isUpcoming ───────────────────────────────────
 BookingSchema.virtual('isUpcoming').get(function() {
@@ -117,16 +134,26 @@ BookingSchema.virtual('isUpcoming').get(function() {
 
 // ── Virtual: canCancel ────────────────────────────────────
 BookingSchema.virtual('canCancel').get(function() {
-  if (this.status !== 'confirmed') return false;
+  if (!['confirmed', 'pending'].includes(this.status)) return false;
+  // ✅ FIX: timeSlots[0] use karo (earliest slot)
+  const firstSlot = this.timeSlots?.[0];
+  if (!firstSlot?.start) return false;
   const bookingDateTime = new Date(this.date);
-  const [h, m] = this.timeSlot.start.split(':');
-  bookingDateTime.setHours(parseInt(h), parseInt(m), 0, 0);
+  const [h, m] = firstSlot.start.split(':');
+  bookingDateTime.setHours(parseInt(h), parseInt(m || 0), 0, 0);
   const hoursUntil = (bookingDateTime - new Date()) / (1000 * 60 * 60);
   return hoursUntil >= (parseInt(process.env.BOOKING_CANCELLATION_HOURS) || 4);
 });
 
+// ── Virtual: slotCount (convenience) ─────────────────────
+BookingSchema.virtual('slotCount').get(function() {
+  return this.timeSlots?.length || 1;
+});
+
 // ── Static: Check slot availability ───────────────────────
-BookingSchema.statics.isSlotAvailable = async function(turfId, date, timeSlot) {
+// ✅ FIX: ab timeSlots array mein check karo
+// Backward compat ke liye dono check hain
+BookingSchema.statics.isSlotAvailable = async function(turfId, date, slotStart) {
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(date);
@@ -135,7 +162,8 @@ BookingSchema.statics.isSlotAvailable = async function(turfId, date, timeSlot) {
   const existing = await this.findOne({
     turf: turfId,
     date: { $gte: startOfDay, $lte: endOfDay },
-    'timeSlot.start': timeSlot,
+    // ✅ FIX: timeSlots.start array field mein check karo
+    'timeSlots.start': slotStart,
     status: { $in: ['pending', 'confirmed'] }
   });
 

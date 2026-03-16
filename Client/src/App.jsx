@@ -20,6 +20,7 @@ import ScrollToTop from "../components/ScrollToTop/ScrollToTop";
 import BookingPage from "../pages/BookingPage";
 import MyBookingsPage from "../pages/Mybookingspage";
 import BookingDetailsPage from "../pages/BookingDetailsPage";
+import ProfilePage from "../pages/Profile";
 
 
 const App = () => {
@@ -47,6 +48,7 @@ const App = () => {
         <Route path="/booking/:id" element={<BookingPage />} />
         <Route path="/my-bookings" element={<MyBookingsPage />} />
         <Route path="/bookings/:id" element={<BookingDetailsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
 
 
       </Routes>

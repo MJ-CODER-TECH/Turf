@@ -34,10 +34,22 @@ const formatDateTime = (d) => {
   });
 };
 
+// ✅ FIX: timeSlots array se pehla slot lo (backward compat ke saath)
+const getFirstSlot = (booking) => {
+  if (booking?.timeSlots?.length > 0) return booking.timeSlots[0];
+  return booking?.timeSlot || null;
+};
+
+const getLastSlot = (booking) => {
+  if (booking?.timeSlots?.length > 0) return booking.timeSlots[booking.timeSlots.length - 1];
+  return booking?.timeSlot || null;
+};
+
 const getHoursUntil = (booking) => {
-  if (!booking?.date || !booking?.timeSlot?.start) return null;
+  const firstSlot = getFirstSlot(booking);
+  if (!booking?.date || !firstSlot?.start) return null;
   const d = new Date(booking.date);
-  const [h] = booking.timeSlot.start.split(':').map(Number);
+  const [h] = firstSlot.start.split(':').map(Number);
   d.setHours(h, 0, 0, 0);
   return (d - new Date()) / (1000 * 60 * 60);
 };
@@ -238,10 +250,8 @@ const BookingDetailPage = () => {
     }
   }, [id, fetchBooking]);
 
-  // ── Loading ──────────────────────────────────────────────
   if (loading) return <Skeleton />;
 
-  // ── Error ────────────────────────────────────────────────
   if (error) return (
     <div className="min-h-screen dark:bg-[#0a1628] bg-gray-50 flex items-center justify-center px-4">
       <div className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-2xl p-10 max-w-sm w-full text-center shadow-sm">
@@ -262,6 +272,10 @@ const BookingDetailPage = () => {
 
   if (!booking) return null;
 
+  // ✅ FIX: timeSlots array se data lo
+  const firstSlot = getFirstSlot(booking);
+  const lastSlot  = getLastSlot(booking);
+  const slotCount = booking.timeSlots?.length || 1;
   const hrs       = getHoursUntil(booking);
   const canCancel = ['confirmed', 'pending'].includes(booking.status) && hrs !== null && hrs > 0;
   const upcoming  = booking.status === 'confirmed' && hrs !== null && hrs > 0;
@@ -276,7 +290,6 @@ const BookingDetailPage = () => {
     <div className="min-h-screen dark:bg-[#0a1628] bg-gray-50 pb-16">
       <div className="max-w-2xl mx-auto px-4 py-6 pt-24">
 
-        {/* Back */}
         <button onClick={() => navigate('/my-bookings')}
           className="flex items-center gap-2 dark:text-slate-400 text-slate-500 text-sm mb-6 dark:hover:text-white hover:text-gray-900 transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -285,11 +298,8 @@ const BookingDetailPage = () => {
           My Bookings
         </button>
 
-        {/* Header */}
         <div className="mb-6">
-          <span className="dark:text-green-400 text-green-600 text-xs font-black tracking-[3px] uppercase">
-            🎫 Booking Detail
-          </span>
+          <span className="dark:text-green-400 text-green-600 text-xs font-black tracking-[3px] uppercase">🎫 Booking Detail</span>
           <div className="flex items-start justify-between mt-2 gap-3 flex-wrap">
             <h1 className="dark:text-white text-gray-900 text-3xl font-extrabold leading-tight">{turfName}</h1>
             <StatusBadge status={booking.status} large />
@@ -297,7 +307,6 @@ const BookingDetailPage = () => {
           <div className="w-12 h-1 rounded-full bg-gradient-to-r from-green-400 to-green-600 mt-3" />
         </div>
 
-        {/* Upcoming banner */}
         {upcoming && (
           <div className="mb-4 px-4 py-3 dark:bg-green-500/10 bg-green-50 dark:border-green-500/30 border-green-200 border rounded-xl flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
@@ -335,24 +344,32 @@ const BookingDetailPage = () => {
           <p className="dark:text-white text-gray-900 font-extrabold text-sm mb-1">Booking Info</p>
           <div className="w-6 h-0.5 bg-green-500 rounded-full mb-3" />
           <InfoRow icon="📋" label="Booking ID" value={booking.bookingId} mono />
-          <InfoRow icon="📅" label="Date"        value={formatDate(booking.date)} />
-          <InfoRow icon="🕐" label="Time"        value={`${formatTime(booking.timeSlot?.start)} → ${formatTime(booking.timeSlot?.end)}`} />
-          <InfoRow icon="⏱"  label="Duration"   value="1 hour" />
-          <InfoRow icon="👥" label="Players"     value={`${booking.players || 10}`} />
-          <InfoRow icon="🗓" label="Booked On"   value={formatDateTime(booking.createdAt)} />
+          <InfoRow icon="📅" label="Date"       value={formatDate(booking.date)} />
+          {/* ✅ FIX: first slot start → last slot end dikhao */}
+          <InfoRow icon="🕐" label="Time"
+            value={`${formatTime(firstSlot?.start)} → ${formatTime(lastSlot?.end)}`} />
+          {/* ✅ FIX: dynamic duration from slotCount */}
+          <InfoRow icon="⏱"  label="Duration"  value={`${slotCount} hr${slotCount > 1 ? 's' : ''}`} />
+          {/* ✅ FIX: multiple slots list dikhao agar > 1 */}
+          {slotCount > 1 && (
+            <InfoRow icon="🗂" label="All Slots"
+              value={booking.timeSlots.map(s => formatTime(s.start)).join(', ')} />
+          )}
+          <InfoRow icon="👥" label="Players"    value={`${booking.players || 10}`} />
+          <InfoRow icon="🗓" label="Booked On"  value={formatDateTime(booking.createdAt)} />
         </div>
 
         {/* Payment info */}
         <div className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-2xl p-5 shadow-sm mb-4">
           <p className="dark:text-white text-gray-900 font-extrabold text-sm mb-1">Payment</p>
           <div className="w-6 h-0.5 bg-green-500 rounded-full mb-3" />
-          <InfoRow icon="💳" label="Method"      value={booking.paymentMethod || '—'} />
-          <InfoRow icon="🧾" label="Base"        value={`₹${booking.amount?.base || 0}`} />
-          <InfoRow icon="📊" label="GST (18%)"   value={`₹${booking.amount?.taxes || 0}`} />
+          <InfoRow icon="💳" label="Method"     value={booking.paymentMethod || '—'} />
+          <InfoRow icon="🧾" label="Base"       value={`₹${booking.amount?.base || 0}`} />
+          <InfoRow icon="📊" label="GST (18%)"  value={`₹${booking.amount?.taxes || 0}`} />
           {booking.amount?.discount > 0 && (
-            <InfoRow icon="🏷" label="Discount"  value={`-₹${booking.amount.discount}`} green />
+            <InfoRow icon="🏷" label="Discount" value={`-₹${booking.amount.discount}`} green />
           )}
-          <InfoRow icon="💰" label="Total Paid"  value={`₹${booking.amount?.total || 0}`} green />
+          <InfoRow icon="💰" label="Total Paid" value={`₹${booking.amount?.total || 0}`} green />
           {booking.razorpayPaymentId && (
             <InfoRow icon="🔑" label="Payment ID" value={booking.razorpayPaymentId} mono />
           )}
@@ -384,27 +401,20 @@ const BookingDetailPage = () => {
           </div>
         )}
 
-        {/* Action buttons */}
         <div className="flex gap-3">
-          <button
-            onClick={() => navigate(`/turf/${turfId}`)}
-            className="flex-1 py-3 dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border dark:text-slate-300 text-slate-600 font-bold rounded-xl text-sm dark:hover:border-green-500/50 hover:border-green-500/50 dark:hover:text-white hover:text-gray-900 transition-all"
-          >
+          <button onClick={() => navigate(`/turf/${turfId}`)}
+            className="flex-1 py-3 dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border dark:text-slate-300 text-slate-600 font-bold rounded-xl text-sm dark:hover:border-green-500/50 hover:border-green-500/50 dark:hover:text-white hover:text-gray-900 transition-all">
             View Turf
           </button>
           {canCancel && (
-            <button
-              onClick={() => setShowCancel(true)}
-              className="flex-1 py-3 bg-red-500/10 border border-red-500/20 dark:text-red-400 text-red-500 font-extrabold rounded-xl text-sm hover:bg-red-500/20 hover:border-red-500/40 transition-all"
-            >
+            <button onClick={() => setShowCancel(true)}
+              className="flex-1 py-3 bg-red-500/10 border border-red-500/20 dark:text-red-400 text-red-500 font-extrabold rounded-xl text-sm hover:bg-red-500/20 hover:border-red-500/40 transition-all">
               Cancel Booking
             </button>
           )}
         </div>
-
       </div>
 
-      {/* Cancel Modal */}
       {showCancel && (
         <CancelModal
           booking={booking}
@@ -414,7 +424,6 @@ const BookingDetailPage = () => {
         />
       )}
 
-      {/* Toast */}
       {toast && (
         <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 text-sm font-bold rounded-xl shadow-lg z-50 whitespace-nowrap
           ${toast.type === 'success' ? 'bg-green-500 dark:text-[#0a1628] text-white' : 'bg-red-500 text-white'}`}>

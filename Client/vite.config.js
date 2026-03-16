@@ -7,6 +7,14 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
    server: {
     host: true, // ya '0.0.0.0'
-    port: 5173, // default port
+    port: 5173, // default 
+        proxy: {
+      '/api': {
+        target: 'http://localhost:5000', // ← tera backend port
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+
   },
 })

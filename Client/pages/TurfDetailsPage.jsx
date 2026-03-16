@@ -20,10 +20,7 @@ const formatHour = (h) => {
   return `${hour}:00 ${ampm}`;
 };
 
-const getTodayStr = () => {
-  const d = new Date();
-  return d.toISOString().split('T')[0];
-};
+const getTodayStr = () => new Date().toISOString().split('T')[0];
 
 const isWeekend = (dateStr) => {
   if (!dateStr) return false;
@@ -35,9 +32,9 @@ const generateSlots = (openHour = 6, closeHour = 23) => {
   const slots = [];
   for (let h = openHour; h < closeHour; h++) {
     slots.push({
-      start: `${String(h).padStart(2, '0')}:00`,
-      end:   `${String(h + 1).padStart(2, '0')}:00`,
-      label: formatHour(h),
+      start:    `${String(h).padStart(2, '0')}:00`,
+      end:      `${String(h + 1).padStart(2, '0')}:00`,
+      label:    formatHour(h),
       endLabel: formatHour(h + 1),
     });
   }
@@ -45,7 +42,7 @@ const generateSlots = (openHour = 6, closeHour = 23) => {
 };
 
 // ── SlotGrid Component ─────────────────────────────────────
-const SlotGrid = ({ slots, bookedSlots, selectedSlots, onToggle, loadingAvailability }) => {
+const SlotGrid = ({ slots, bookedSlots, pastSlots, selectedSlots, onToggle, loadingAvailability }) => {
   if (loadingAvailability) {
     return (
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -60,32 +57,49 @@ const SlotGrid = ({ slots, bookedSlots, selectedSlots, onToggle, loadingAvailabi
     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
       {slots.map((slot) => {
         const isBooked   = bookedSlots.includes(slot.start);
+        const isPast     = pastSlots.includes(slot.start);
         const isSelected = selectedSlots.find(s => s.start === slot.start);
+        const isDisabled = isBooked || isPast;
 
-        let cls = 'relative flex flex-col items-center justify-center h-14 rounded-xl border-2 text-xs font-bold transition-all duration-200 cursor-pointer select-none ';
+        let cls = 'relative flex flex-col items-center justify-center h-14 rounded-xl border-2 text-xs font-bold transition-all duration-200 select-none ';
 
-        if (isBooked) {
+        if (isPast) {
+          // ✅ Past slots — "CLOSED" label, gray style
+          cls += 'bg-slate-500/5 border-slate-500/20 text-slate-400/50 dark:text-slate-600 cursor-not-allowed';
+        } else if (isBooked) {
+          // Already booked by someone — "FULL" label, red style
           cls += 'bg-red-500/10 border-red-500/30 text-red-400/60 cursor-not-allowed line-through';
         } else if (isSelected) {
-          cls += 'bg-green-500 border-green-400 text-white dark:text-[#0a1628] shadow-[0_0_14px_rgba(34,197,94,0.4)] scale-[1.03]';
+          cls += 'bg-green-500 border-green-400 text-white dark:text-[#0a1628] shadow-[0_0_14px_rgba(34,197,94,0.4)] scale-[1.03] cursor-pointer';
         } else {
-          cls += 'dark:bg-[#0a1628] bg-gray-50 dark:border-[#1a3a5c] border-gray-200 dark:text-slate-300 text-slate-600 dark:hover:border-green-500/60 hover:border-green-500/60 dark:hover:text-white hover:text-gray-900 dark:hover:bg-[#0d2a4a] hover:bg-green-50';
+          cls += 'dark:bg-[#0a1628] bg-gray-50 dark:border-[#1a3a5c] border-gray-200 dark:text-slate-300 text-slate-600 dark:hover:border-green-500/60 hover:border-green-500/60 dark:hover:text-white hover:text-gray-900 dark:hover:bg-[#0d2a4a] hover:bg-green-50 cursor-pointer';
         }
 
         return (
           <button
             key={slot.start}
-            disabled={isBooked}
-            onClick={() => !isBooked && onToggle(slot)}
+            disabled={isDisabled}
+            onClick={() => !isDisabled && onToggle(slot)}
             className={cls}
           >
             <span>{slot.label}</span>
             <span className="text-[10px] opacity-70 font-normal">→ {slot.endLabel}</span>
-            {isBooked && (
-              <span className="absolute top-1 right-1.5 text-[9px] text-red-400/70 font-semibold">FULL</span>
+
+            {/* ✅ Past slot = CLOSED, Booked slot = FULL */}
+            {isPast && (
+              <span className="absolute top-1 right-1.5 text-[9px] text-slate-400/60 dark:text-slate-600 font-semibold">
+                CLOSED
+              </span>
+            )}
+            {isBooked && !isPast && (
+              <span className="absolute top-1 right-1.5 text-[9px] text-red-400/70 font-semibold">
+                FULL
+              </span>
             )}
             {isSelected && (
-              <span className="absolute top-1 right-1.5 text-[9px] text-white dark:text-[#0a1628] font-black">✓</span>
+              <span className="absolute top-1 right-1.5 text-[9px] text-white dark:text-[#0a1628] font-black">
+                ✓
+              </span>
             )}
           </button>
         );
@@ -112,7 +126,6 @@ const BookingSummary = ({ selectedDate, selectedSlots, pricing, turf, onBook, bo
   return (
     <div className="mt-4 dark:bg-[#0a1628] bg-gray-50 border border-green-500/30 rounded-xl p-4 space-y-2">
       <p className="dark:text-green-400 text-green-600 text-xs font-bold tracking-widest uppercase mb-3">📋 Booking Summary</p>
-
       <div className="space-y-1.5">
         <div className="flex justify-between text-sm">
           <span className="dark:text-slate-400 text-slate-500">Date</span>
@@ -143,7 +156,6 @@ const BookingSummary = ({ selectedDate, selectedSlots, pricing, turf, onBook, bo
           <span className="dark:text-green-400 text-green-600">₹{total}</span>
         </div>
       </div>
-
       <button
         onClick={onBook}
         disabled={booking}
@@ -168,18 +180,19 @@ const TurfDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [turf, setTurf]                   = useState(null);
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState('');
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [retryCount, setRetryCount]       = useState(0);
+  const [turf, setTurf]                     = useState(null);
+  const [loading, setLoading]               = useState(true);
+  const [error, setError]                   = useState('');
+  const [selectedImage, setSelectedImage]   = useState(null);
+  const [retryCount, setRetryCount]         = useState(0);
 
-  const [selectedDate, setSelectedDate]   = useState(getTodayStr());
-  const [selectedSlots, setSelectedSlots] = useState([]);
-  const [bookedSlots, setBookedSlots]     = useState([]);
-  const [loadingAvail, setLoadingAvail]   = useState(false);
-  const [booking, setBooking]             = useState(false);
-  const [bookingError, setBookingError]   = useState('');
+  const [selectedDate, setSelectedDate]     = useState(getTodayStr());
+  const [selectedSlots, setSelectedSlots]   = useState([]);
+  const [bookedSlots, setBookedSlots]       = useState([]);
+  const [pastSlots, setPastSlots]           = useState([]); // ✅ past slots alag track karo
+  const [loadingAvail, setLoadingAvail]     = useState(false);
+  const [booking, setBooking]               = useState(false);
+  const [bookingError, setBookingError]     = useState('');
   const [bookingSuccess, setBookingSuccess] = useState(null);
 
   const ALL_SLOTS = useMemo(() => generateSlots(6, 23), []);
@@ -218,8 +231,17 @@ const TurfDetailsPage = () => {
         params: { turfId: id, date },
         timeout: 8000,
       });
-      setBookedSlots(data?.data?.bookedSlots || []);
+
+      const slots = data?.data?.slots || [];
+
+      // ✅ Past aur booked alag alag track karo
+      const past   = slots.filter(s => s.isPast).map(s => s.start);
+      const booked = slots.filter(s => !s.available && !s.isPast).map(s => s.start);
+
+      setPastSlots(past);
+      setBookedSlots(booked);
     } catch {
+      setPastSlots([]);
       setBookedSlots([]);
     } finally {
       setLoadingAvail(false);
@@ -245,6 +267,7 @@ const TurfDetailsPage = () => {
         navigate('/login', { state: { from: `/turf/${id}` } });
         return;
       }
+
       const pricePerHour = isWeekend(selectedDate)
         ? (turf?.pricing?.weekend || turf?.price)
         : (turf?.pricing?.weekday || turf?.price);
@@ -252,49 +275,69 @@ const TurfDetailsPage = () => {
       const base  = pricePerHour * slotCount;
       const taxes = Math.round(base * 0.18);
       const total = base + taxes;
+
       const { data } = await axios.post(
         `${API_BASE_URL}/bookings/initiate`,
-        { turfId: id, date: selectedDate, timeSlots: selectedSlots.map(s => ({ start: s.start, end: s.end })), players: turf?.capacity || 10 },
+        {
+          turfId:    id,
+          date:      selectedDate,
+          timeSlots: selectedSlots.map(s => ({ start: s.start, end: s.end })),
+          players:   turf?.capacity || 10
+        },
         { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }
       );
+
       if (!data?.data) throw new Error('Invalid booking response');
-      const { razorpayOrderId, bookingId, keyId } = data.data;
+
+      const { razorpayOrderId, keyId, bookingMeta } = data.data;
+
+      if (typeof window.Razorpay === 'undefined') {
+        navigate(`/booking/${id}`, {
+          state: { turf, selectedDate, selectedSlots, bookingMeta, razorpayOrderId, total }
+        });
+        return;
+      }
+
       const options = {
-        key: keyId || import.meta?.env?.VITE_RAZORPAY_KEY_ID,
-        amount: total * 100,
-        currency: 'INR',
-        name: turf?.name || 'TurfZone',
+        key:         keyId || import.meta?.env?.VITE_RAZORPAY_KEY_ID,
+        amount:      total * 100,
+        currency:    'INR',
+        name:        turf?.name || 'TurfZone',
         description: `${slotCount} slot${slotCount > 1 ? 's' : ''} on ${selectedDate}`,
-        order_id: razorpayOrderId,
+        order_id:    razorpayOrderId,
+
         handler: async (response) => {
           try {
             const confirmToken = localStorage.getItem('token');
             await axios.post(`${API_BASE_URL}/bookings/confirm`, {
-              bookingId,
-              razorpayOrderId: response.razorpay_order_id,
+              razorpayOrderId:   response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
+              bookingMeta,
             }, { headers: { Authorization: `Bearer ${confirmToken}` } });
-            setBookingSuccess({ bookingId, total, slotCount });
+
+            setBookingSuccess({ total, slotCount });
             setSelectedSlots([]);
             fetchAvailability(selectedDate);
           } catch {
             setBookingError('Payment received but confirmation failed. Contact support.');
           }
         },
-        prefill: { name: '', email: '', contact: turf?.turfSnapshot?.ownerPhone || '' },
-        theme: { color: '#22c55e' },
-        modal: { ondismiss: () => setBooking(false) },
+
+        prefill: { name: '', email: '', contact: '' },
+        theme:   { color: '#22c55e' },
+        modal:   { ondismiss: () => setBooking(false) },
       };
-      if (typeof window.Razorpay === 'undefined') {
-        navigate(`/booking/${id}`, { state: { turf, selectedDate, selectedSlots, bookingId, razorpayOrderId, total } });
-        return;
-      }
+
       const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', (resp) => {
+        setBookingError(`Payment failed: ${resp.error.description}`);
+        setBooking(false);
+      });
       rzp.open();
+
     } catch (err) {
       setBookingError(err.response?.data?.message || err.message || 'Booking failed. Please try again.');
-    } finally {
       setBooking(false);
     }
   }, [selectedSlots, selectedDate, turf, id, navigate, fetchAvailability]);
@@ -305,7 +348,6 @@ const TurfDetailsPage = () => {
   useEffect(() => { fetchTurf(); }, [fetchTurf]);
   useEffect(() => { if (selectedDate) fetchAvailability(selectedDate); }, [selectedDate, fetchAvailability]);
 
-  // ── Loading ──────────────────────────────────────────────
   if (loading) return (
     <div className="min-h-screen dark:bg-[#0a1628] bg-gray-50 pt-24 px-4">
       <div className="max-w-7xl mx-auto animate-pulse">
@@ -326,7 +368,6 @@ const TurfDetailsPage = () => {
     </div>
   );
 
-  // ── Error ────────────────────────────────────────────────
   if (error) return (
     <div className="min-h-screen dark:bg-[#0a1628] bg-gray-50 flex items-center justify-center px-4">
       <div className="dark:bg-[#0d1f3c] bg-white border border-red-500/30 rounded-xl p-10 max-w-md w-full text-center shadow-sm">
@@ -347,7 +388,6 @@ const TurfDetailsPage = () => {
     </div>
   );
 
-  // ── Not Found ────────────────────────────────────────────
   if (!turf) return (
     <div className="min-h-screen dark:bg-[#0a1628] bg-gray-50 flex items-center justify-center px-4">
       <div className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl p-10 max-w-md w-full text-center shadow-sm">
@@ -360,7 +400,6 @@ const TurfDetailsPage = () => {
 
   const { location, pricing, rating, amenities, rules, cancellationPolicy } = turf;
 
-  // ── Booking Success ──────────────────────────────────────
   if (bookingSuccess) return (
     <div className="min-h-screen dark:bg-[#0a1628] bg-gray-50 flex items-center justify-center px-4">
       <div className="dark:bg-[#0d1f3c] bg-white border border-green-500/40 rounded-2xl p-10 max-w-md w-full text-center shadow-sm">
@@ -386,12 +425,10 @@ const TurfDetailsPage = () => {
     </div>
   );
 
-  // ── Main Render ──────────────────────────────────────────
   return (
     <div className="min-h-screen dark:bg-[#0a1628] bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-6 pt-24">
 
-        {/* Breadcrumb */}
         <nav className="flex mb-6 text-sm dark:text-slate-500 text-slate-400">
           <ol className="inline-flex items-center space-x-1">
             <li><button onClick={() => navigate('/')} className="dark:hover:text-green-400 hover:text-green-600 transition-colors">Home</button></li>
@@ -402,7 +439,6 @@ const TurfDetailsPage = () => {
           </ol>
         </nav>
 
-        {/* Header */}
         <header className="mb-8">
           <span className="dark:text-green-400 text-green-600 text-xs font-bold tracking-[3px] uppercase">🏟️ Turf Details</span>
           <h1 className="dark:text-white text-gray-900 text-4xl font-extrabold mt-2 mb-3">{turf.name}</h1>
@@ -424,7 +460,6 @@ const TurfDetailsPage = () => {
           </div>
         </header>
 
-        {/* Image Gallery */}
         {turf.images?.length > 0 ? (
           <div className="mb-8">
             <div className="mb-3 rounded-xl overflow-hidden dark:border-[#1a3a5c] border-gray-200 border">
@@ -452,20 +487,15 @@ const TurfDetailsPage = () => {
           </div>
         )}
 
-        {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-          {/* Left — Details */}
           <div className="lg:col-span-2 space-y-6">
 
-            {/* About */}
             <section className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl p-6 shadow-sm">
               <h2 className="dark:text-white text-gray-900 font-extrabold text-lg mb-1">About this Turf</h2>
               <div className="w-8 h-0.5 bg-green-500 rounded-full mb-4" />
               <p className="dark:text-slate-400 text-slate-500 leading-relaxed">{turf.description}</p>
             </section>
 
-            {/* Stats */}
             <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: 'Sport',      value: turf.sport },
@@ -480,12 +510,10 @@ const TurfDetailsPage = () => {
               ))}
             </section>
 
-            {/* Book a Slot */}
             <section className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl p-6 shadow-sm">
               <h2 className="dark:text-white text-gray-900 font-extrabold text-lg mb-1">Book a Slot</h2>
               <div className="w-8 h-0.5 bg-green-500 rounded-full mb-5" />
 
-              {/* Date Picker */}
               <div className="mb-5">
                 <label className="block dark:text-slate-400 text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">
                   📅 Select Date
@@ -504,8 +532,8 @@ const TurfDetailsPage = () => {
                 )}
               </div>
 
-              {/* Legend */}
-              <div className="flex items-center gap-4 mb-4 text-xs dark:text-slate-500 text-slate-400">
+              {/* ✅ Legend mein CLOSED add kiya */}
+              <div className="flex flex-wrap items-center gap-4 mb-4 text-xs dark:text-slate-500 text-slate-400">
                 <span className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded dark:bg-[#0a1628] bg-gray-100 dark:border-[#1a3a5c] border-gray-300 border inline-block" />
                   Available
@@ -516,13 +544,18 @@ const TurfDetailsPage = () => {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded bg-red-500/20 border border-red-500/30 inline-block" />
-                  Booked
+                  Full
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded bg-slate-500/10 border border-slate-500/20 inline-block" />
+                  Closed
                 </span>
               </div>
 
               <SlotGrid
                 slots={ALL_SLOTS}
                 bookedSlots={bookedSlots}
+                pastSlots={pastSlots}
                 selectedSlots={selectedSlots}
                 onToggle={toggleSlot}
                 loadingAvailability={loadingAvail}
@@ -553,7 +586,6 @@ const TurfDetailsPage = () => {
               </div>
             </section>
 
-            {/* Amenities */}
             {amenities?.length > 0 && (
               <section className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl p-6 shadow-sm">
                 <h2 className="dark:text-white text-gray-900 font-extrabold text-lg mb-1">Amenities</h2>
@@ -569,7 +601,6 @@ const TurfDetailsPage = () => {
               </section>
             )}
 
-            {/* Rules */}
             {rules?.length > 0 && (
               <section className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl p-6 shadow-sm">
                 <h2 className="dark:text-white text-gray-900 font-extrabold text-lg mb-1">House Rules</h2>
@@ -585,7 +616,6 @@ const TurfDetailsPage = () => {
               </section>
             )}
 
-            {/* Map Placeholder */}
             <section className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl overflow-hidden shadow-sm">
               <div className="px-6 pt-6 pb-3">
                 <h2 className="dark:text-white text-gray-900 font-extrabold text-lg mb-1">Location</h2>
@@ -603,7 +633,6 @@ const TurfDetailsPage = () => {
             </section>
           </div>
 
-          {/* Right — Sticky Booking Card */}
           <div className="lg:col-span-1 hidden lg:block">
             <div className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl p-6 sticky top-24 shadow-sm">
               <span className="dark:text-green-400 text-green-600 text-xs font-bold tracking-[3px] uppercase">💰 Pricing</span>
@@ -647,7 +676,6 @@ const TurfDetailsPage = () => {
               )}
             </div>
           </div>
-
         </div>
       </div>
     </div>

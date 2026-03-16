@@ -26,18 +26,31 @@ const formatTime = (timeStr) => {
   return `${hour}:00 ${ampm}`;
 };
 
+// ✅ FIX: timeSlots array se slots lo (backward compat ke saath)
+const getFirstSlot = (booking) => {
+  if (booking.timeSlots?.length > 0) return booking.timeSlots[0];
+  return booking.timeSlot || null;
+};
+
+const getLastSlot = (booking) => {
+  if (booking.timeSlots?.length > 0) return booking.timeSlots[booking.timeSlots.length - 1];
+  return booking.timeSlot || null;
+};
+
 const isUpcoming = (booking) => {
   if (booking.status !== 'confirmed') return false;
+  const firstSlot = getFirstSlot(booking);
   const d = new Date(booking.date);
-  const [h] = (booking.timeSlot?.start || '0:0').split(':');
+  const [h] = (firstSlot?.start || '0:0').split(':');
   d.setHours(parseInt(h), 0, 0, 0);
   return d > new Date();
 };
 
 const canCancelBooking = (booking) => {
   if (!['confirmed', 'pending'].includes(booking.status)) return false;
+  const firstSlot = getFirstSlot(booking);
   const d = new Date(booking.date);
-  const [h] = (booking.timeSlot?.start || '0:0').split(':');
+  const [h] = (firstSlot?.start || '0:0').split(':');
   d.setHours(parseInt(h), 0, 0, 0);
   const hoursUntil = (d - new Date()) / (1000 * 60 * 60);
   return hoursUntil > 0;
@@ -49,31 +62,26 @@ const STATUS = {
     label: 'Confirmed',
     cls: 'dark:bg-green-500/10 bg-green-50 dark:border-green-500/30 border-green-200 dark:text-green-400 text-green-600',
     dot: 'bg-green-500',
-    icon: '✓',
   },
   pending: {
     label: 'Pending',
     cls: 'dark:bg-yellow-500/10 bg-yellow-50 dark:border-yellow-500/30 border-yellow-200 dark:text-yellow-400 text-yellow-600',
     dot: 'bg-yellow-500',
-    icon: '⏳',
   },
   cancelled: {
     label: 'Cancelled',
     cls: 'dark:bg-red-500/10 bg-red-50 dark:border-red-500/30 border-red-200 dark:text-red-400 text-red-500',
     dot: 'bg-red-500',
-    icon: '✕',
   },
   completed: {
     label: 'Completed',
     cls: 'dark:bg-blue-500/10 bg-blue-50 dark:border-blue-500/30 border-blue-200 dark:text-blue-400 text-blue-600',
     dot: 'bg-blue-400',
-    icon: '⚑',
   },
   'no-show': {
     label: 'No Show',
     cls: 'dark:bg-slate-500/10 bg-slate-100 dark:border-slate-500/30 border-slate-300 dark:text-slate-400 text-slate-500',
     dot: 'bg-slate-400',
-    icon: '—',
   },
 };
 
@@ -100,22 +108,18 @@ const FILTERS = [
 const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
   const [reason, setReason] = useState('');
 
+  // ✅ FIX: timeSlots[0] use karo
+  const firstSlot = getFirstSlot(booking);
   const d = new Date(booking.date);
-  const [h] = (booking.timeSlot?.start || '0:0').split(':');
+  const [h] = (firstSlot?.start || '0:0').split(':');
   d.setHours(parseInt(h), 0, 0, 0);
   const hoursUntil = (d - new Date()) / (1000 * 60 * 60);
   const willRefund = hoursUntil >= 4;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 dark:bg-black/70 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
+      <div className="absolute inset-0 dark:bg-black/70 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative dark:bg-[#0d1f3c] bg-white border dark:border-[#1a3a5c] border-gray-200 rounded-2xl p-6 max-w-sm w-full shadow-xl z-10">
-        {/* Icon */}
         <div className="w-14 h-14 mx-auto mb-4 bg-red-500/10 border border-red-500/30 rounded-full flex items-center justify-center">
           <svg className="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
@@ -123,14 +127,11 @@ const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
           </svg>
         </div>
 
-        <h3 className="dark:text-white text-gray-900 font-extrabold text-lg text-center mb-1">
-          Cancel Booking?
-        </h3>
+        <h3 className="dark:text-white text-gray-900 font-extrabold text-lg text-center mb-1">Cancel Booking?</h3>
         <p className="dark:text-slate-400 text-slate-500 text-sm text-center mb-4">
-          {booking.turfSnapshot?.name || booking.turf?.name} · {formatDate(booking.date)} · {formatTime(booking.timeSlot?.start)}
+          {booking.turfSnapshot?.name || booking.turf?.name} · {formatDate(booking.date)} · {formatTime(firstSlot?.start)}
         </p>
 
-        {/* Refund info */}
         <div className={`p-3 rounded-xl border mb-4 text-sm ${
           willRefund
             ? 'dark:bg-green-500/5 bg-green-50 dark:border-green-500/20 border-green-200 dark:text-green-400 text-green-600'
@@ -141,7 +142,6 @@ const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
             : '✕ No refund applicable — booking is within the 4-hour cancellation window.'}
         </div>
 
-        {/* Reason */}
         <textarea
           value={reason}
           onChange={e => setReason(e.target.value)}
@@ -151,17 +151,12 @@ const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
         />
 
         <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 dark:bg-[#0a1628] bg-gray-50 dark:border-[#1a3a5c] border-gray-200 border dark:text-slate-300 text-slate-600 rounded-xl text-sm font-bold hover:border-green-500 dark:hover:text-white transition-all"
-          >
+          <button onClick={onClose}
+            className="flex-1 py-2.5 dark:bg-[#0a1628] bg-gray-50 dark:border-[#1a3a5c] border-gray-200 border dark:text-slate-300 text-slate-600 rounded-xl text-sm font-bold hover:border-green-500 dark:hover:text-white transition-all">
             Keep Booking
           </button>
-          <button
-            onClick={() => onConfirm(reason)}
-            disabled={loading}
-            className="flex-1 py-2.5 bg-red-500 text-white font-extrabold rounded-xl text-sm hover:bg-red-400 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          <button onClick={() => onConfirm(reason)} disabled={loading}
+            className="flex-1 py-2.5 bg-red-500 text-white font-extrabold rounded-xl text-sm hover:bg-red-400 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
             {loading ? (
               <span className="flex items-center justify-center gap-1.5">
                 <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -189,26 +184,25 @@ const BookingCard = ({ booking, onCancel, style }) => {
   const sport     = booking.turfSnapshot?.sport || booking.turf?.sport || '';
   const img       = booking.turf?.images?.[0]?.url;
 
+  // ✅ FIX: timeSlots array se data lo
+  const firstSlot = getFirstSlot(booking);
+  const lastSlot  = getLastSlot(booking);
+  const slotCount = booking.timeSlots?.length || 1;
+
   return (
-    <div
-      style={style}
+    <div style={style}
       className={`dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-2xl overflow-hidden shadow-sm transition-all duration-300 hover:shadow-md hover:dark:border-[#2a4a7c] hover:border-gray-300
-        ${upcoming ? 'ring-1 ring-green-500/20' : ''}`}
-    >
-      {/* Upcoming ribbon */}
+        ${upcoming ? 'ring-1 ring-green-500/20' : ''}`}>
+
       {upcoming && (
         <div className="bg-green-500/10 border-b border-green-500/20 px-4 py-1.5 flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-xs dark:text-green-400 text-green-600 font-bold tracking-wider uppercase">
-            Upcoming Match
-          </span>
+          <span className="text-xs dark:text-green-400 text-green-600 font-bold tracking-wider uppercase">Upcoming Match</span>
         </div>
       )}
 
       <div className="p-5">
         <div className="flex items-start gap-4">
-
-          {/* Turf image / sport icon */}
           <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 dark:bg-[#0a1628] bg-gray-100 dark:border-[#1a3a5c] border-gray-200 border flex items-center justify-center">
             {img
               ? <img src={img} alt={turfName} className="w-full h-full object-cover" loading="lazy" />
@@ -218,7 +212,6 @@ const BookingCard = ({ booking, onCancel, style }) => {
             }
           </div>
 
-          {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-1">
               <h3 className="dark:text-white text-gray-900 font-extrabold text-base truncate">{turfName}</h3>
@@ -228,7 +221,6 @@ const BookingCard = ({ booking, onCancel, style }) => {
               {turfArea}{turfArea && turfCity ? ', ' : ''}{turfCity}
             </p>
 
-            {/* Date & slot */}
             <div className="flex flex-wrap gap-3">
               <span className="flex items-center gap-1.5 text-xs dark:text-slate-400 text-slate-500">
                 <svg className="w-3.5 h-3.5 dark:text-green-400 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -237,36 +229,35 @@ const BookingCard = ({ booking, onCancel, style }) => {
                 </svg>
                 {formatDate(booking.date)}
               </span>
+              {/* ✅ FIX: first slot start → last slot end */}
               <span className="flex items-center gap-1.5 text-xs dark:text-slate-400 text-slate-500">
                 <svg className="w-3.5 h-3.5 dark:text-green-400 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                {formatTime(booking.timeSlot?.start)} → {formatTime(booking.timeSlot?.end)}
+                {formatTime(firstSlot?.start)} → {formatTime(lastSlot?.end)}
+                {slotCount > 1 && (
+                  <span className="ml-1 px-1.5 py-0.5 dark:bg-green-500/10 bg-green-50 dark:text-green-400 text-green-600 rounded text-[10px] font-bold">
+                    {slotCount}h
+                  </span>
+                )}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Divider */}
         <div className="border-t dark:border-[#1a3a5c] border-gray-100 my-4" />
 
-        {/* Footer row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* Amount */}
             <div>
               <p className="text-[10px] dark:text-slate-600 text-slate-400 uppercase tracking-wider font-semibold mb-0.5">Paid</p>
               <p className="dark:text-green-400 text-green-600 font-extrabold text-sm">₹{booking.amount?.total}</p>
             </div>
-
-            {/* Booking ref */}
             <div>
               <p className="text-[10px] dark:text-slate-600 text-slate-400 uppercase tracking-wider font-semibold mb-0.5">Ref</p>
               <p className="dark:text-slate-300 text-slate-600 font-mono text-xs">{booking.bookingId || '—'}</p>
             </div>
-
-            {/* Refund badge */}
             {booking.status === 'cancelled' && booking.refundAmount > 0 && (
               <div>
                 <p className="text-[10px] dark:text-slate-600 text-slate-400 uppercase tracking-wider font-semibold mb-0.5">Refund</p>
@@ -275,19 +266,14 @@ const BookingCard = ({ booking, onCancel, style }) => {
             )}
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate(`/bookings/${booking._id}`)}
-              className="px-3 py-1.5 text-xs dark:border-[#1a3a5c] border-gray-200 border dark:text-slate-400 text-slate-500 rounded-lg dark:hover:border-green-500/50 hover:border-green-500/50 dark:hover:text-white hover:text-gray-900 transition-all font-semibold"
-            >
+            <button onClick={() => navigate(`/bookings/${booking._id}`)}
+              className="px-3 py-1.5 text-xs dark:border-[#1a3a5c] border-gray-200 border dark:text-slate-400 text-slate-500 rounded-lg dark:hover:border-green-500/50 hover:border-green-500/50 dark:hover:text-white hover:text-gray-900 transition-all font-semibold">
               Details
             </button>
             {canCancel && (
-              <button
-                onClick={() => onCancel(booking)}
-                className="px-3 py-1.5 text-xs bg-red-500/10 border border-red-500/20 dark:text-red-400 text-red-500 rounded-lg hover:bg-red-500/20 hover:border-red-500/40 transition-all font-semibold"
-              >
+              <button onClick={() => onCancel(booking)}
+                className="px-3 py-1.5 text-xs bg-red-500/10 border border-red-500/20 dark:text-red-400 text-red-500 rounded-lg hover:bg-red-500/20 hover:border-red-500/40 transition-all font-semibold">
                 Cancel
               </button>
             )}
@@ -308,15 +294,11 @@ const EmptyState = ({ filter, onExplore }) => (
       {filter === 'all' ? 'No bookings yet' : `No ${filter} bookings`}
     </h3>
     <p className="dark:text-slate-500 text-slate-400 text-sm mb-6 max-w-xs">
-      {filter === 'all'
-        ? 'Book your first turf slot and get on the field!'
-        : `You don't have any ${filter} bookings right now.`}
+      {filter === 'all' ? 'Book your first turf slot and get on the field!' : `You don't have any ${filter} bookings right now.`}
     </p>
     {filter === 'all' && (
-      <button
-        onClick={onExplore}
-        className="px-6 py-2.5 bg-green-500 dark:text-[#0a1628] text-white font-extrabold rounded-xl hover:bg-green-400 transition-colors text-sm"
-      >
+      <button onClick={onExplore}
+        className="px-6 py-2.5 bg-green-500 dark:text-[#0a1628] text-white font-extrabold rounded-xl hover:bg-green-400 transition-colors text-sm">
         Explore Turfs →
       </button>
     )}
@@ -422,37 +404,27 @@ const MyBookingsPage = () => {
     }
   }, [cancelTarget, page, filter, fetchBookings]);
 
-  // Stats from current page
-  const stats = useMemo(() => {
-    const all = bookings;
-    return {
-      total:     all.length,
-      upcoming:  all.filter(isUpcoming).length,
-      spent:     all.reduce((s, b) => s + (b.paymentStatus === 'paid' ? (b.amount?.total || 0) : 0), 0),
-    };
-  }, [bookings]);
+  const stats = useMemo(() => ({
+    total:    bookings.length,
+    upcoming: bookings.filter(isUpcoming).length,
+    spent:    bookings.reduce((s, b) => s + (b.paymentStatus === 'paid' ? (b.amount?.total || 0) : 0), 0),
+  }), [bookings]);
 
   return (
     <div className="min-h-screen dark:bg-[#0a1628] bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-6 pt-24">
 
-        {/* Header */}
         <div className="mb-8">
-          <span className="dark:text-green-400 text-green-600 text-xs font-black tracking-[3px] uppercase">
-            📋 Booking History
-          </span>
-          <h1 className="dark:text-white text-gray-900 text-4xl font-extrabold mt-2 mb-2">
-            My Bookings
-          </h1>
+          <span className="dark:text-green-400 text-green-600 text-xs font-black tracking-[3px] uppercase">📋 Booking History</span>
+          <h1 className="dark:text-white text-gray-900 text-4xl font-extrabold mt-2 mb-2">My Bookings</h1>
           <div className="w-14 h-1 rounded-full bg-gradient-to-r from-green-400 to-green-600" />
         </div>
 
-        {/* Stats bar */}
         {!loading && bookings.length > 0 && (
           <div className="grid grid-cols-3 gap-3 mb-6">
             {[
-              { label: 'This Page',  value: pagination?.total ?? stats.total, suffix: ' bookings' },
-              { label: 'Upcoming',   value: stats.upcoming, suffix: ' slots' },
+              { label: 'This Page',   value: pagination?.total ?? stats.total, suffix: ' bookings' },
+              { label: 'Upcoming',    value: stats.upcoming, suffix: ' slots' },
               { label: 'Total Spent', value: `₹${stats.spent.toLocaleString('en-IN')}`, suffix: '' },
             ].map(item => (
               <div key={item.label}
@@ -466,37 +438,29 @@ const MyBookingsPage = () => {
           </div>
         )}
 
-        {/* Filter tabs */}
         <div className="flex gap-2 overflow-x-auto pb-1 mb-6 scrollbar-hide">
           {FILTERS.map(f => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
+            <button key={f.key} onClick={() => setFilter(f.key)}
               className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all duration-200
                 ${filter === f.key
                   ? 'bg-green-500 dark:text-[#0a1628] text-white shadow-[0_0_12px_rgba(34,197,94,0.3)]'
                   : 'dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border dark:text-slate-400 text-slate-500 dark:hover:border-green-500/40 hover:border-green-500/40 dark:hover:text-white hover:text-gray-900'
-                }`}
-            >
+                }`}>
               {f.label}
             </button>
           ))}
         </div>
 
-        {/* Error state */}
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-between">
             <p className="dark:text-red-400 text-red-500 text-sm">⚠️ {error}</p>
-            <button
-              onClick={() => fetchBookings(page, filter)}
-              className="text-xs dark:text-slate-400 text-slate-500 underline hover:dark:text-white hover:text-gray-900"
-            >
+            <button onClick={() => fetchBookings(page, filter)}
+              className="text-xs dark:text-slate-400 text-slate-500 underline hover:dark:text-white hover:text-gray-900">
               Retry
             </button>
           </div>
         )}
 
-        {/* Content */}
         {loading ? (
           <div className="space-y-4">
             {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
@@ -516,17 +480,12 @@ const MyBookingsPage = () => {
               ))}
             </div>
 
-            {/* Pagination */}
             {pagination && pagination.pages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-8">
-                <button
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page === 1}
-                  className="px-4 py-2 dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl text-sm dark:text-slate-400 text-slate-500 disabled:opacity-30 dark:hover:border-green-500/50 hover:border-green-500/50 dark:hover:text-white hover:text-gray-900 transition-all disabled:cursor-not-allowed font-bold"
-                >
+                <button onClick={() => handlePageChange(page - 1)} disabled={page === 1}
+                  className="px-4 py-2 dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl text-sm dark:text-slate-400 text-slate-500 disabled:opacity-30 dark:hover:border-green-500/50 hover:border-green-500/50 dark:hover:text-white hover:text-gray-900 transition-all disabled:cursor-not-allowed font-bold">
                   ← Prev
                 </button>
-
                 <div className="flex gap-1">
                   {[...Array(pagination.pages)].map((_, i) => {
                     const p = i + 1;
@@ -535,26 +494,19 @@ const MyBookingsPage = () => {
                       return null;
                     }
                     return (
-                      <button
-                        key={p}
-                        onClick={() => handlePageChange(p)}
+                      <button key={p} onClick={() => handlePageChange(p)}
                         className={`w-9 h-9 rounded-xl text-sm font-extrabold transition-all duration-200
                           ${p === page
                             ? 'bg-green-500 dark:text-[#0a1628] text-white'
                             : 'dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border dark:text-slate-400 text-slate-500 dark:hover:border-green-500/50 hover:border-green-500/50'
-                          }`}
-                      >
+                          }`}>
                         {p}
                       </button>
                     );
                   })}
                 </div>
-
-                <button
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page === pagination.pages}
-                  className="px-4 py-2 dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl text-sm dark:text-slate-400 text-slate-500 disabled:opacity-30 dark:hover:border-green-500/50 hover:border-green-500/50 dark:hover:text-white hover:text-gray-900 transition-all disabled:cursor-not-allowed font-bold"
-                >
+                <button onClick={() => handlePageChange(page + 1)} disabled={page === pagination.pages}
+                  className="px-4 py-2 dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-xl text-sm dark:text-slate-400 text-slate-500 disabled:opacity-30 dark:hover:border-green-500/50 hover:border-green-500/50 dark:hover:text-white hover:text-gray-900 transition-all disabled:cursor-not-allowed font-bold">
                   Next →
                 </button>
               </div>
@@ -563,7 +515,6 @@ const MyBookingsPage = () => {
         )}
       </div>
 
-      {/* Cancel Modal */}
       {cancelTarget && (
         <CancelModal
           booking={cancelTarget}
@@ -573,20 +524,15 @@ const MyBookingsPage = () => {
         />
       )}
 
-      {/* Cancel error (inside modal already, but also show below if modal closed) */}
       {cancelError && !cancelTarget && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 bg-red-500 text-white text-sm font-bold rounded-xl shadow-lg z-50">
           ⚠️ {cancelError}
         </div>
       )}
 
-      {/* Toast */}
       {toast && (
         <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 text-sm font-bold rounded-xl shadow-lg z-50 transition-all duration-300
-          ${toast.type === 'success'
-            ? 'bg-green-500 dark:text-[#0a1628] text-white'
-            : 'bg-red-500 text-white'}`}
-        >
+          ${toast.type === 'success' ? 'bg-green-500 dark:text-[#0a1628] text-white' : 'bg-red-500 text-white'}`}>
           {toast.type === 'success' ? '✓ ' : '⚠️ '}{toast.msg}
         </div>
       )}
