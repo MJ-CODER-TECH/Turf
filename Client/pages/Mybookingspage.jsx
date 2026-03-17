@@ -538,6 +538,7 @@ const MyBookingsPage = () => {
           </>
         )}
       </div>
+      
       {cancelTarget && (
         <CancelModal
           booking={cancelTarget}
