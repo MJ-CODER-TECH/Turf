@@ -56,6 +56,14 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+
+
+// server.js (ya app.js) mein — server start hone ke baad
+const autoCompleteBookings = require('./jobs/autoCompleteBookings');
+autoCompleteBookings();
+
+
+
 // Stricter limiter for auth routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

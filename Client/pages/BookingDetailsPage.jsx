@@ -34,7 +34,6 @@ const formatDateTime = (d) => {
   });
 };
 
-// ✅ FIX: timeSlots array se pehla slot lo (backward compat ke saath)
 const getFirstSlot = (booking) => {
   if (booking?.timeSlots?.length > 0) return booking.timeSlots[0];
   return booking?.timeSlot || null;
@@ -45,7 +44,23 @@ const getLastSlot = (booking) => {
   return booking?.timeSlot || null;
 };
 
-const getHoursUntil = (booking) => {
+// ✅ FIX: slot time se nahi, createdAt se calculate karo
+const getHoursSinceBooked = (booking) => {
+  if (!booking?.createdAt) return null;
+  return (new Date() - new Date(booking.createdAt)) / (1000 * 60 * 60);
+};
+
+// Slot future mein hai ya nahi (cancel button visibility ke liye)
+const isSlotInFuture = (booking) => {
+  const firstSlot = getFirstSlot(booking);
+  if (!booking?.date || !firstSlot?.start) return false;
+  const d = new Date(booking.date);
+  const [h] = firstSlot.start.split(':').map(Number);
+  d.setHours(h, 0, 0, 0);
+  return d > new Date();
+};
+
+const getHoursUntilSlot = (booking) => {
   const firstSlot = getFirstSlot(booking);
   if (!booking?.date || !firstSlot?.start) return null;
   const d = new Date(booking.date);
@@ -122,8 +137,10 @@ const QRDisplay = ({ qrCode }) => {
 // ── Cancel Modal ───────────────────────────────────────────
 const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
   const [reason, setReason] = useState('');
-  const hrs = getHoursUntil(booking);
-  const willRefund = hrs !== null && hrs >= 4;
+
+  // ✅ FIX: createdAt se calculate karo — 4 hours andar = refund milega
+  const hoursSinceBooked = getHoursSinceBooked(booking);
+  const willRefund = hoursSinceBooked !== null && hoursSinceBooked < 4;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -143,8 +160,8 @@ const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
             : 'dark:bg-red-500/5 bg-red-50 dark:border-red-500/20 border-red-200 dark:text-red-400 text-red-500'
         }`}>
           {willRefund
-            ? `✓ Full refund of ₹${booking.amount?.total} will be processed in 5–7 business days.`
-            : '✕ No refund — within 4-hour cancellation window.'}
+            ? `✓ Full refund of ₹${booking.amount?.total} — cancelled within 4 hours of booking.`
+            : '✕ No refund — more than 4 hours have passed since booking.'}
         </div>
 
         <textarea
@@ -272,19 +289,24 @@ const BookingDetailPage = () => {
 
   if (!booking) return null;
 
-  // ✅ FIX: timeSlots array se data lo
-  const firstSlot = getFirstSlot(booking);
-  const lastSlot  = getLastSlot(booking);
-  const slotCount = booking.timeSlots?.length || 1;
-  const hrs       = getHoursUntil(booking);
-  const canCancel = ['confirmed', 'pending'].includes(booking.status) && hrs !== null && hrs > 0;
-  const upcoming  = booking.status === 'confirmed' && hrs !== null && hrs > 0;
-  const turfName  = booking.turfSnapshot?.name     || booking.turf?.name             || 'Turf';
-  const turfCity  = booking.turfSnapshot?.city     || booking.turf?.location?.city   || '';
-  const turfArea  = booking.turfSnapshot?.location || booking.turf?.location?.area   || '';
-  const sport     = booking.turfSnapshot?.sport    || booking.turf?.sport            || '';
-  const turfImg   = booking.turf?.images?.[0]?.url;
-  const turfId    = booking.turf?._id || booking.turf;
+  const firstSlot        = getFirstSlot(booking);
+  const lastSlot         = getLastSlot(booking);
+  const slotCount        = booking.timeSlots?.length || 1;
+  const hrsUntilSlot     = getHoursUntilSlot(booking);
+  const hoursSinceBooked = getHoursSinceBooked(booking);
+
+  // ✅ Cancel button: slot future mein hona chahiye
+  const canCancel = ['confirmed', 'pending'].includes(booking.status) && isSlotInFuture(booking);
+
+  // ✅ Upcoming banner: confirmed + slot future mein
+  const upcoming = booking.status === 'confirmed' && isSlotInFuture(booking);
+
+  const turfName = booking.turfSnapshot?.name     || booking.turf?.name           || 'Turf';
+  const turfCity = booking.turfSnapshot?.city     || booking.turf?.location?.city || '';
+  const turfArea = booking.turfSnapshot?.location || booking.turf?.location?.area || '';
+  const sport    = booking.turfSnapshot?.sport    || booking.turf?.sport          || '';
+  const turfImg  = booking.turf?.images?.[0]?.url;
+  const turfId   = booking.turf?._id || booking.turf;
 
   return (
     <div className="min-h-screen dark:bg-[#0a1628] bg-gray-50 pb-16">
@@ -311,12 +333,26 @@ const BookingDetailPage = () => {
           <div className="mb-4 px-4 py-3 dark:bg-green-500/10 bg-green-50 dark:border-green-500/30 border-green-200 border rounded-xl flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
             <p className="dark:text-green-400 text-green-600 text-sm font-bold">
-              {hrs < 1
-                ? `⚡ Starting in ${Math.round(hrs * 60)} minutes!`
-                : hrs < 24
-                  ? `🕐 Starting in ${Math.round(hrs)} hours`
-                  : `📅 ${Math.ceil(hrs / 24)} day${Math.ceil(hrs / 24) > 1 ? 's' : ''} away`}
+              {hrsUntilSlot < 1
+                ? `⚡ Starting in ${Math.round(hrsUntilSlot * 60)} minutes!`
+                : hrsUntilSlot < 24
+                  ? `🕐 Starting in ${Math.round(hrsUntilSlot)} hours`
+                  : `📅 ${Math.ceil(hrsUntilSlot / 24)} day${Math.ceil(hrsUntilSlot / 24) > 1 ? 's' : ''} away`}
             </p>
+          </div>
+        )}
+
+        {/* ✅ Refund window banner — sirf tab dikhao jab cancel ho sakta hai */}
+        {canCancel && hoursSinceBooked !== null && (
+          <div className={`mb-4 px-4 py-3 border rounded-xl flex items-center gap-3 text-sm font-bold
+            ${hoursSinceBooked < 4
+              ? 'dark:bg-green-500/10 bg-green-50 dark:border-green-500/30 border-green-200 dark:text-green-400 text-green-600'
+              : 'dark:bg-slate-500/10 bg-slate-50 dark:border-slate-500/30 border-slate-200 dark:text-slate-400 text-slate-500'
+            }`}>
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${hoursSinceBooked < 4 ? 'bg-green-500' : 'bg-slate-400'}`} />
+            {hoursSinceBooked < 4
+              ? `✓ Free cancellation window open — refund available if cancelled now`
+              : `✕ Cancellation window closed — no refund applicable`}
           </div>
         )}
 
@@ -345,18 +381,15 @@ const BookingDetailPage = () => {
           <div className="w-6 h-0.5 bg-green-500 rounded-full mb-3" />
           <InfoRow icon="📋" label="Booking ID" value={booking.bookingId} mono />
           <InfoRow icon="📅" label="Date"       value={formatDate(booking.date)} />
-          {/* ✅ FIX: first slot start → last slot end dikhao */}
           <InfoRow icon="🕐" label="Time"
             value={`${formatTime(firstSlot?.start)} → ${formatTime(lastSlot?.end)}`} />
-          {/* ✅ FIX: dynamic duration from slotCount */}
           <InfoRow icon="⏱"  label="Duration"  value={`${slotCount} hr${slotCount > 1 ? 's' : ''}`} />
-          {/* ✅ FIX: multiple slots list dikhao agar > 1 */}
           {slotCount > 1 && (
             <InfoRow icon="🗂" label="All Slots"
               value={booking.timeSlots.map(s => formatTime(s.start)).join(', ')} />
           )}
-          <InfoRow icon="👥" label="Players"    value={`${booking.players || 10}`} />
-          <InfoRow icon="🗓" label="Booked On"  value={formatDateTime(booking.createdAt)} />
+          <InfoRow icon="👥" label="Players"   value={`${booking.players || 10}`} />
+          <InfoRow icon="🗓" label="Booked On" value={formatDateTime(booking.createdAt)} />
         </div>
 
         {/* Payment info */}
@@ -383,16 +416,40 @@ const BookingDetailPage = () => {
           <div className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-2xl p-5 shadow-sm mb-4">
             <p className="dark:text-red-400 text-red-500 font-extrabold text-sm mb-1">Cancellation</p>
             <div className="w-6 h-0.5 bg-red-500 rounded-full mb-3" />
-            <InfoRow icon="📅" label="Cancelled On"   value={formatDateTime(booking.cancelledAt)} />
-            <InfoRow icon="📝" label="Reason"         value={booking.cancellationReason || '—'} />
-            <InfoRow icon="💸" label="Refund Amount"  value={booking.refundAmount > 0 ? `₹${booking.refundAmount}` : 'No refund'} green={booking.refundAmount > 0} />
-            {booking.refundStatus && (
-              <InfoRow icon="🔄" label="Refund Status" value={booking.refundStatus} />
+            <InfoRow icon="📅" label="Cancelled On" value={formatDateTime(booking.cancelledAt)} />
+            <InfoRow icon="📝" label="Reason"       value={booking.cancellationReason || '—'} />
+
+            {/* Refund Amount */}
+            <InfoRow
+              icon="💸"
+              label="Refund Amount"
+              value={booking.refundAmount > 0 ? `₹${booking.refundAmount}` : 'No refund'}
+              green={booking.refundAmount > 0}
+            />
+
+            {/* ✅ Refund Status — all cases handled */}
+            <InfoRow
+              icon="🔄"
+              label="Refund Status"
+              value={
+                booking.refundStatus === 'processed' ? '✓ Processed' :
+                booking.refundStatus === 'pending'   ? '⏳ Pending (5–7 days)' :
+                booking.refundStatus === 'failed'    ? '✕ Failed — contact support' :
+                booking.refundStatus === 'none'      ? 'Not applicable' :
+                booking.refundAmount > 0             ? '⏳ Pending (5–7 days)' :
+                                                       'Not applicable'
+              }
+              green={booking.refundStatus === 'processed'}
+            />
+
+            {/* Refund ID — sirf tab dikhao jab exist kare */}
+            {booking.refundId && (
+              <InfoRow icon="🧾" label="Refund ID" value={booking.refundId} mono />
             )}
           </div>
         )}
 
-        {/* QR Code — confirmed only */}
+        {/* QR Code */}
         {booking.status === 'confirmed' && booking.qrCode && (
           <div className="dark:bg-[#0d1f3c] bg-white dark:border-[#1a3a5c] border-gray-200 border rounded-2xl p-5 shadow-sm mb-4">
             <p className="dark:text-white text-gray-900 font-extrabold text-sm mb-1">Entry Pass</p>

@@ -344,14 +344,15 @@ exports.cancelBooking = async (req, res) => {
       return res.status(400).json({ success: false, message: `Cannot cancel a ${booking.status} booking.` });
     }
 
-    const firstSlot = booking.timeSlots?.[0] || booking.timeSlot;
-    const bookingDateTime = new Date(booking.date);
-    const [h] = (firstSlot?.start || '0:0').split(':');
-    bookingDateTime.setHours(parseInt(h), 0, 0, 0);
-    const hoursUntil = (bookingDateTime - new Date()) / (1000 * 60 * 60);
+    // ✅ FIX: createdAt se calculate karo — booking karne ke 4 hours andar cancel = refund
+    const hoursSinceBooked = moment.tz(IST).diff(
+      moment.tz(booking.createdAt, IST),
+      'hours',
+      true  // decimal precision
+    );
 
     const freeCancelHours = parseInt(process.env.BOOKING_CANCELLATION_HOURS) || 4;
-    const canRefund    = hoursUntil >= freeCancelHours;
+    const canRefund    = hoursSinceBooked < freeCancelHours;  // ✅ 4 hours andar cancel = refund
     const refundAmount = canRefund ? booking.amount.total : 0;
 
     let refundId = null;
@@ -376,6 +377,14 @@ exports.cancelBooking = async (req, res) => {
     booking.cancellationReason = req.body.reason || 'Cancelled by user';
     booking.refundAmount       = refundAmount;
     if (refundId) booking.refundId = refundId;
+
+    // ✅ refundStatus hamesha explicitly set karo
+    if (refundAmount === 0) {
+      booking.refundStatus = 'none';
+    } else if (!booking.refundStatus || booking.refundStatus === '') {
+      booking.refundStatus = 'pending';
+    }
+
     await booking.save();
 
     const [user, turf] = await Promise.all([
@@ -393,7 +402,7 @@ exports.cancelBooking = async (req, res) => {
         title: 'Booking Cancelled',
         message: refundAmount > 0
           ? `Your booking at ${turf.name} has been cancelled. Refund of ₹${refundAmount} will be processed in 5-7 days.`
-          : `Your booking at ${turf.name} has been cancelled.`,
+          : `Your booking at ${turf.name} has been cancelled. No refund applicable.`,
         data: { bookingId: booking._id }
       })
     ]);
@@ -402,7 +411,7 @@ exports.cancelBooking = async (req, res) => {
       success: true,
       message: canRefund
         ? `Booking cancelled. Refund of ₹${refundAmount} will be processed in 5-7 business days.`
-        : 'Booking cancelled. No refund applicable (within 4-hour window).',
+        : 'Booking cancelled. No refund applicable (4-hour window has passed).',
       data: { bookingId: booking.bookingId, refundAmount, canRefund }
     });
 
@@ -490,7 +499,15 @@ exports.checkAvailability = async (req, res) => {
 exports.handleWebhook = async (req, res) => {
   try {
     const signature = req.headers['x-razorpay-signature'];
-    const rawBody = req.body instanceof Buffer ? req.body.toString('utf8') : JSON.stringify(req.body);
+
+    if (!signature) {
+      logger.warn('💳 Webhook: missing signature header');
+      return res.status(400).json({ success: false, message: 'Missing signature.' });
+    }
+
+    const rawBody = req.body instanceof Buffer
+      ? req.body.toString('utf8')
+      : JSON.stringify(req.body);
 
     const crypto = require('crypto');
     const expectedSig = crypto
@@ -503,24 +520,142 @@ exports.handleWebhook = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid webhook signature.' });
     }
 
-    const event   = JSON.parse(rawBody);
+    const event = typeof req.body === 'object' ? req.body : JSON.parse(rawBody);
     const payload = event.payload;
 
     switch (event.event) {
-      case 'payment.captured':
-        logger.info(`💳 Webhook: payment captured ${payload.payment?.entity?.id}`);
+
+      // ── PAYMENT CAPTURED ────────────────────────────────
+      case 'payment.captured': {
+        const payment = payload.payment?.entity;
+        logger.info(`💳 Webhook: payment captured ${payment?.id}`);
+
+        if (payment?.id) {
+          await Booking.findOneAndUpdate(
+            { razorpayPaymentId: payment.id },
+            { paymentStatus: 'paid' }
+          );
+        }
         break;
-      case 'payment.failed':
-        logger.warn(`💳 Webhook: payment failed ${payload.payment?.entity?.id}`);
+      }
+
+      // ── PAYMENT FAILED ──────────────────────────────────
+      case 'payment.failed': {
+        const payment = payload.payment?.entity;
+        logger.warn(`💳 Webhook: payment failed ${payment?.id}`);
+
+        if (payment?.order_id) {
+          await Booking.findOneAndUpdate(
+            { razorpayOrderId: payment.order_id },
+            { paymentStatus: 'failed', status: 'cancelled' }
+          );
+        }
         break;
-      case 'refund.processed':
-        logger.info(`💳 Webhook: refund processed ${payload.refund?.entity?.id}`);
+      }
+
+      // ── REFUND PROCESSED ────────────────────────────────
+      case 'refund.processed': {
+        const refund = payload.refund?.entity;
+        logger.info(`💳 Webhook: refund processed ${refund?.id}`);
+
+        if (refund?.payment_id) {
+          const updated = await Booking.findOneAndUpdate(
+            { razorpayPaymentId: refund.payment_id },
+            {
+              refundStatus: 'processed',
+              refundId:     refund.id,
+              paymentStatus: 'refunded',
+            },
+            { new: true }
+          );
+
+          if (updated) {
+            logger.info(`💳 Refund DB updated: booking ${updated.bookingId}, refund ${refund.id}`);
+          } else {
+            logger.warn(`💳 Refund webhook: no booking found for payment ${refund.payment_id}`);
+          }
+        }
         break;
+      }
+
+      // ── REFUND FAILED ───────────────────────────────────
+      case 'refund.failed': {
+        const refund = payload.refund?.entity;
+        logger.warn(`💳 Webhook: refund failed ${refund?.id}`);
+
+        if (refund?.payment_id) {
+          await Booking.findOneAndUpdate(
+            { razorpayPaymentId: refund.payment_id },
+            { refundStatus: 'failed' }
+          );
+          logger.warn(`💳 Refund marked failed in DB for payment ${refund.payment_id}`);
+        }
+        break;
+      }
+
+      default:
+        logger.info(`💳 Webhook: unhandled event ${event.event}`);
     }
 
-    res.status(200).json({ success: true });
+    // Razorpay expects 200 quickly — always respond success after processing
+    return res.status(200).json({ success: true });
+
   } catch (err) {
     logger.error(`Webhook error: ${err.message}`);
-    res.status(500).json({ success: false });
+    // Still return 200 — agar 500 bheja toh Razorpay retry karega
+    return res.status(200).json({ success: true });
+  }
+};
+
+
+// ── @GET /bookings/:id/refund-status ─────────────────────
+exports.getRefundStatus = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id)
+      .select('user refundAmount refundStatus refundId cancelledAt paymentStatus bookingId');
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found.' });
+    }
+
+    if (booking.user.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorized.' });
+    }
+
+    // ✅ Razorpay se live status fetch karo agar refundId hai
+    let liveRefundStatus = null;
+    if (booking.refundId && booking.refundStatus !== 'processed') {
+      try {
+        const result = await paymentService.getRazorpayRefundStatus(booking.refundId);
+        if (result.success && result.status) {
+          liveRefundStatus = result.status; // 'processed' | 'pending' | 'failed'
+
+          // DB sync karo agar status change hua
+          if (liveRefundStatus !== booking.refundStatus) {
+            await Booking.findByIdAndUpdate(booking._id, { refundStatus: liveRefundStatus });
+            booking.refundStatus = liveRefundStatus;
+          }
+        }
+      } catch (e) {
+        logger.warn(`Could not fetch live refund status for ${booking.refundId}: ${e.message}`);
+        // fail silently — DB value use karenge
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        bookingId:    booking.bookingId,
+        refundAmount: booking.refundAmount,
+        refundStatus: booking.refundStatus || 'none',
+        refundId:     booking.refundId     || null,
+        paymentStatus: booking.paymentStatus,
+        cancelledAt:  booking.cancelledAt,
+      }
+    });
+
+  } catch (err) {
+    logger.error(`Refund status error: ${err.message}`);
+    return res.status(500).json({ success: false, message: 'Server error.' });
   }
 };

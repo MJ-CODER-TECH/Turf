@@ -18,5 +18,7 @@ router.post('/initiate',    bookingController.initiateBooking);
 router.post('/confirm',     bookingController.confirmBooking);
 router.get('/:id',          bookingController.getBooking);
 router.post('/:id/cancel',  bookingController.cancelBooking);
+router.get('/:id/refund-status', bookingController.getRefundStatus);
+
 
 module.exports = router;

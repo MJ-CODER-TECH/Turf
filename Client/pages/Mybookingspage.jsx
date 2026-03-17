@@ -26,7 +26,6 @@ const formatTime = (timeStr) => {
   return `${hour}:00 ${ampm}`;
 };
 
-// ✅ FIX: timeSlots array se slots lo (backward compat ke saath)
 const getFirstSlot = (booking) => {
   if (booking.timeSlots?.length > 0) return booking.timeSlots[0];
   return booking.timeSlot || null;
@@ -35,6 +34,12 @@ const getFirstSlot = (booking) => {
 const getLastSlot = (booking) => {
   if (booking.timeSlots?.length > 0) return booking.timeSlots[booking.timeSlots.length - 1];
   return booking.timeSlot || null;
+};
+
+// ✅ FIX: createdAt se hours calculate karo
+const getHoursSinceBooked = (booking) => {
+  if (!booking?.createdAt) return null;
+  return (new Date() - new Date(booking.createdAt)) / (1000 * 60 * 60);
 };
 
 const isUpcoming = (booking) => {
@@ -46,14 +51,14 @@ const isUpcoming = (booking) => {
   return d > new Date();
 };
 
+// ✅ FIX: sirf slot future mein hona chahiye cancel ke liye
 const canCancelBooking = (booking) => {
   if (!['confirmed', 'pending'].includes(booking.status)) return false;
   const firstSlot = getFirstSlot(booking);
   const d = new Date(booking.date);
   const [h] = (firstSlot?.start || '0:0').split(':');
   d.setHours(parseInt(h), 0, 0, 0);
-  const hoursUntil = (d - new Date()) / (1000 * 60 * 60);
-  return hoursUntil > 0;
+  return d > new Date();
 };
 
 // ── Status config ──────────────────────────────────────────
@@ -108,13 +113,10 @@ const FILTERS = [
 const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
   const [reason, setReason] = useState('');
 
-  // ✅ FIX: timeSlots[0] use karo
+  // ✅ FIX: createdAt se calculate karo — 4 hours andar cancel = refund milega
+  const hoursSinceBooked = getHoursSinceBooked(booking);
+  const willRefund = hoursSinceBooked !== null && hoursSinceBooked < 4;
   const firstSlot = getFirstSlot(booking);
-  const d = new Date(booking.date);
-  const [h] = (firstSlot?.start || '0:0').split(':');
-  d.setHours(parseInt(h), 0, 0, 0);
-  const hoursUntil = (d - new Date()) / (1000 * 60 * 60);
-  const willRefund = hoursUntil >= 4;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -138,8 +140,8 @@ const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
             : 'dark:bg-red-500/5 bg-red-50 dark:border-red-500/20 border-red-200 dark:text-red-400 text-red-500'
         }`}>
           {willRefund
-            ? `✓ Eligible for full refund of ₹${booking.amount?.total}. Will be processed in 5–7 business days.`
-            : '✕ No refund applicable — booking is within the 4-hour cancellation window.'}
+            ? `✓ Full refund of ₹${booking.amount?.total} — cancelled within 4 hours of booking.`
+            : '✕ No refund — more than 4 hours have passed since booking.'}
         </div>
 
         <textarea
@@ -184,10 +186,12 @@ const BookingCard = ({ booking, onCancel, style }) => {
   const sport     = booking.turfSnapshot?.sport || booking.turf?.sport || '';
   const img       = booking.turf?.images?.[0]?.url;
 
-  // ✅ FIX: timeSlots array se data lo
   const firstSlot = getFirstSlot(booking);
   const lastSlot  = getLastSlot(booking);
   const slotCount = booking.timeSlots?.length || 1;
+
+  // ✅ Refund window indicator for cancelled bookings list
+  const hoursSinceBooked = getHoursSinceBooked(booking);
 
   return (
     <div style={style}
@@ -198,6 +202,27 @@ const BookingCard = ({ booking, onCancel, style }) => {
         <div className="bg-green-500/10 border-b border-green-500/20 px-4 py-1.5 flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
           <span className="text-xs dark:text-green-400 text-green-600 font-bold tracking-wider uppercase">Upcoming Match</span>
+        </div>
+      )}
+
+      {/* ✅ Refund window banner on card */}
+      {canCancel && hoursSinceBooked !== null && (
+        <div className={`border-b px-4 py-1.5 flex items-center gap-2
+          ${hoursSinceBooked < 4
+            ? 'bg-green-500/10 border-green-500/20'
+            : 'dark:bg-slate-500/10 bg-slate-50 dark:border-slate-500/20 border-slate-200'
+          }`}>
+          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0
+            ${hoursSinceBooked < 4 ? 'bg-green-500' : 'bg-slate-400'}`} />
+          <span className={`text-xs font-bold tracking-wider
+            ${hoursSinceBooked < 4
+              ? 'dark:text-green-400 text-green-600'
+              : 'dark:text-slate-400 text-slate-500'
+            }`}>
+            {hoursSinceBooked < 4
+              ? '✓ Free cancellation — refund available'
+              : '✕ No refund — cancellation window closed'}
+          </span>
         </div>
       )}
 
@@ -229,7 +254,6 @@ const BookingCard = ({ booking, onCancel, style }) => {
                 </svg>
                 {formatDate(booking.date)}
               </span>
-              {/* ✅ FIX: first slot start → last slot end */}
               <span className="flex items-center gap-1.5 text-xs dark:text-slate-400 text-slate-500">
                 <svg className="w-3.5 h-3.5 dark:text-green-400 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
