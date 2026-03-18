@@ -20,7 +20,7 @@ export default function Sidebar({ active, onNavigate, collapsed }) {
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : 'AD';
-
+    
   return (
     <aside className={`fixed left-0 top-0 h-screen bg-dark-300 border-r border-white/5 flex flex-col transition-all duration-300 z-50 ${collapsed ? 'w-20' : 'w-64'}`}>
       {/* Logo */}
