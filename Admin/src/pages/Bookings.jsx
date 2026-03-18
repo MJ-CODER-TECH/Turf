@@ -394,6 +394,7 @@ export default function Bookings() {
         </div>
       )}
 
+
       {/* Booking Detail Modal */}
       <BookingModal booking={selectedBooking} onClose={() => setSelectedBooking(null)} />
     </div>
