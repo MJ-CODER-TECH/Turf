@@ -14,6 +14,7 @@ const navItems = [
   { id: 'reports', label: 'Reports', icon: BarChart3 },
 ];
 
+
 export default function Sidebar({ active, onNavigate, collapsed }) {
   const { user, logout } = useAuth();
 
