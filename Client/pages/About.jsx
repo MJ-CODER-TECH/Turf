@@ -126,6 +126,7 @@ const AboutPage = () => {
         <div className="mt-8 text-xs dark:text-slate-600 text-slate-400 dark:border-[#1a3a5c] border-gray-200 border-t pt-4 text-center">
           every sport — every turf — every player
         </div>
+        
       </div>
       <Footer />
     </div>
