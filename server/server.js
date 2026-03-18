@@ -78,6 +78,10 @@ const allowedOrigins = [
   process.env.FRONTEND_URL_PROD,
   'https://turf-zone-lovat.vercel.app',
   'http://localhost:5173',
+  'https://admin-panel-turfzone.vercel.app',
+  'http://localhost:5174',
+  
+
 ].filter(Boolean);
 
 const corsOptions = {
